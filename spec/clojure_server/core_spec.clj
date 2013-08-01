@@ -26,18 +26,13 @@
     (let [addr (java.net.InetAddress/getByName "localhost")
           server-socket (create-server-socket 3000 addr)
           future-server-socket (future (listen server-socket))
-          future-client-socket (future (Socket. addr 3000))]
-      (loop []
-        (cond
-          (and (future-done? future-server-socket)
-               (future-done? future-client-socket)) true
-          :else (recur)))
-      (let [server-side-socket @future-server-socket
-            client-side-socket @future-client-socket]
+          future-client-socket (future (Socket. addr 3000))
+          server-side-socket @future-server-socket
+          client-side-socket @future-client-socket]
         (should= java.net.Socket (class server-side-socket))
         (should= (.getLocalPort client-side-socket) (.getPort server-side-socket))
         (should= (.getPort client-side-socket) (.getLocalPort server-side-socket))
         (.close server-side-socket)
         (.close client-side-socket)
-        (.close server-socket))))
+        (.close server-socket)))
 )
