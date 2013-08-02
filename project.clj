@@ -5,4 +5,5 @@
   :dependencies [[org.clojure/clojure "1.4.0"]]
   :profiles {:dev {:dependencies [[speclj "2.5.0"]]}}
   :plugins [[speclj "2.5.0"]]
+  :main clojure_server.server
   :test-paths ["spec"])
