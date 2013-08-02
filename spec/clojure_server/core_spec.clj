@@ -36,3 +36,17 @@
         (.close client-side-socket)
         (.close server-socket)))
 )
+
+(describe "echo-server"
+  (it "listens to the socket and echos the pathname"
+    (let [addr (java.net.InetAddress/getByName "localhost")
+          server (future (echo-server 3000 addr))
+          future-client-socket (future (Socket. addr 3000))
+          client-side-socket @future-client-socket
+          scanner (java.util.Scanner. (.getInputStream client-side-socket))
+          o-stream (java.io.PrintWriter. (.getOutputStream client-side-socket) true)]
+      (.println o-stream "GET /helloworld HTTP/1.1")
+      (should= "helloworld" (.nextLine scanner))
+      (.close client-side-socket)
+      (future-cancel server)))
+)
