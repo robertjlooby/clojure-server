@@ -8,12 +8,15 @@
 (defn listen [server-socket]
   (.accept server-socket))
 
-(defn echo-server [port inet-address]
-  (loop [server-socket (create-server-socket port inet-address)
-         socket (listen server-socket)]
-    (let [scanner (java.util.Scanner. (.getInputStream socket))
-          o-stream (java.io.PrintWriter. (.getOutputStream socket) true)]
-      (.println o-stream (second (clojure.string/split (.nextLine scanner) #"\s+/?")))
-      (.close socket))
-    (recur server-socket (listen server-socket))))
+(defn echo-server [server-socket]
+  (loop []
+    (with-open [socket (listen server-socket)]
+      (let [scanner (java.util.Scanner. (.getInputStream socket))
+            o-stream (java.io.PrintWriter. 
+                       (.getOutputStream socket) true)]
+        (.println o-stream 
+                  (second 
+                    (clojure.string/split (.nextLine scanner) 
+                                          #"\s+/?")))))
+      (recur)))
 
