@@ -51,6 +51,10 @@
                 o-stream (java.io.PrintWriter. 
                            (.getOutputStream client-socket) 
                            true)]
-            (.println o-stream "GET /helloworld HTTP/1.1")
-            (should= "helloworld" (.nextLine scanner)))))))
+            (.print o-stream "GET /helloworld HTTP/1.1\r\n\r\n")
+            (.flush o-stream)
+            (should= "<body>\r\n/helloworld\r\n</body>" 
+                     (.findWithinHorizon scanner 
+                                         "<body>\r\n/helloworld\r\n</body>" 
+                                         10000)))))))
 )

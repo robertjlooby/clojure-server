@@ -1,4 +1,6 @@
 (ns clojure_server.core
+  (:require [clojure_server.header-parser :refer :all]
+            [clojure_server.response-builder :refer :all])
   (:import java.net.ServerSocket))
 
 (defn create-server-socket 
@@ -13,10 +15,10 @@
     (with-open [socket (listen server-socket)]
       (let [scanner (java.util.Scanner. (.getInputStream socket))
             o-stream (java.io.PrintWriter. 
-                       (.getOutputStream socket) true)]
-        (.println o-stream 
-                  (second 
-                    (clojure.string/split (.nextLine scanner) 
-                                          #"\s+/?")))))
+                       (.getOutputStream socket) true)
+            headers (parse-headers scanner)]
+        (.print o-stream (build-response "Clojure Echo Server" 
+                                         (:path headers)))
+        (.flush o-stream)))
       (recur)))
 
