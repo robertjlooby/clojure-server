@@ -1,8 +1,7 @@
 (ns clojure_server.header-parser)
 
-(defn parse-headers [reader]
-  (let [in-seq (line-seq reader)
-        request-line (clojure.string/split (first in-seq) 
+(defn parse-headers [in-seq]
+  (let [request-line (clojure.string/split (first in-seq) 
                                            #" ")]
     (loop [headers (hash-map :method (first request-line)
                              :path (second request-line)

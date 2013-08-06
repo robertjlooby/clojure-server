@@ -3,32 +3,28 @@
             [clojure_server.header-parser :refer :all]))
 
 (describe "header parser"
-  (with get-reader (java.io.BufferedReader.
-                  (java.io.StringReader.
-                    (str "GET /helloworld HTTP/1.1\r\n"
-                         "\r\n"))))
-  (with post-reader (java.io.BufferedReader.
-                   (java.io.StringReader. 
-                     (str "POST /helloworldform HTTP/1.1\r\n"
-                          "\r\n"))))
+  (with get-seq '("GET /helloworld HTTP/1.1"
+                  ""))
+  (with post-seq '("POST /helloworldform HTTP/1.1"
+                   ""))
 
   (it "should get GET requests"
-    (let [headers (parse-headers @get-reader)]
+    (let [headers (parse-headers @get-seq)]
       (should= "GET" (:method headers))))
 
   (it "should get POST requests"
-    (let [headers (parse-headers @post-reader)]
+    (let [headers (parse-headers @post-seq)]
       (should= "POST" (:method headers))))
   
   (it "should get path for get"
-    (let [headers (parse-headers @get-reader)]
+    (let [headers (parse-headers @get-seq)]
       (should= "/helloworld" (:path headers))))
 
   (it "should get path for post"
-    (let [headers (parse-headers @post-reader)]
+    (let [headers (parse-headers @post-seq)]
       (should= "/helloworldform" (:path headers))))
 
   (it "should get HTTP version"
-    (let [headers (parse-headers @get-reader)]
+    (let [headers (parse-headers @get-seq)]
       (should= "HTTP/1.1" (:http-version headers))))
 )

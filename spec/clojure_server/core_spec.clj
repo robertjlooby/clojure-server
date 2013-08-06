@@ -46,9 +46,8 @@
       (with-open [server-socket (create-server-socket 3000 addr)]
         (future (echo-server server-socket))
         (with-open [client-socket (connect-socket addr 3000)]
-          (let [i-stream (socket-in-reader client-socket)
+          (let [i-stream (socket-in-seq client-socket)
                 o-stream (socket-out-writer client-socket)]
             (.println o-stream "GET /helloworld HTTP/1.1\r\n")
-            (should-contain "<body>/helloworld</body>" 
-                     (clojure.string/join (line-seq i-stream))))))))
+            (should-contain "/helloworld" i-stream))))))
 )

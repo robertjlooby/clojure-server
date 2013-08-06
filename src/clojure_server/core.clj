@@ -14,15 +14,16 @@
   (java.io.PrintWriter.
     (.getOutputStream socket) true))
 
-(defn socket-in-reader [socket]
-  (java.io.BufferedReader.
-    (java.io.InputStreamReader.
-      (.getInputStream socket))))
+(defn socket-in-seq [socket]
+  (let [in-buffer (java.io.BufferedReader.
+                    (java.io.InputStreamReader.
+                      (.getInputStream socket)))]
+    (repeatedly #(.readLine in-buffer))))
 
 (defn echo-server [server-socket]
   (loop []
     (with-open [socket (listen server-socket)]
-      (let [i-stream (socket-in-reader socket)
+      (let [i-stream (socket-in-seq socket)
             o-stream (socket-out-writer socket)
             headers  (parse-headers i-stream)
             response (build-response "Clojure Echo Server" 
