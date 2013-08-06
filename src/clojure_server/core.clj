@@ -27,5 +27,5 @@
             headers  (parse-headers i-stream)
             response (build-response "Clojure Echo Server" 
                              (:path headers))]
-        (map #(.println o-stream %) response)))
+        (doall (map #(.println o-stream %) response))))
     (recur)))
