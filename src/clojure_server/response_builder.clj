@@ -1,8 +1,7 @@
 (ns clojure_server.response-builder)
 
 (defn build-response [title, content]
-  (clojure.string/join
-    (map #(str % "\r\n")
+    (map identity
       ["HTTP/1.1 200 OK"
        ""
        "<!DOCTYPE html>"
@@ -14,4 +13,4 @@
        content
        "</body>"
        "</html>"
-       ""])))
+       ""]))

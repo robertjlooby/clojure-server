@@ -46,15 +46,9 @@
       (with-open [server-socket (create-server-socket 3000 addr)]
         (future (echo-server server-socket))
         (with-open [client-socket (connect-socket addr 3000)]
-          (let [scanner (java.util.Scanner. 
-                          (.getInputStream client-socket))
-                o-stream (java.io.PrintWriter. 
-                           (.getOutputStream client-socket) 
-                           true)]
-            (.print o-stream "GET /helloworld HTTP/1.1\r\n\r\n")
-            (.flush o-stream)
-            (should= "<body>\r\n/helloworld\r\n</body>" 
-                     (.findWithinHorizon scanner 
-                                         "<body>\r\n/helloworld\r\n</body>" 
-                                         10000)))))))
+          (let [i-stream (socket-in-reader client-socket)
+                o-stream (socket-out-writer client-socket)]
+            (.println o-stream "GET /helloworld HTTP/1.1\r\n")
+            (should-contain "<body>/helloworld</body>" 
+                     (clojure.string/join (line-seq i-stream))))))))
 )
