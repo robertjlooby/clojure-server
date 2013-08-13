@@ -3,18 +3,18 @@
   (:require [speclj.core :refer :all]
             [clojure_server.response-builder :refer :all]))
 
+(defn str-to-seq [string]
+  (line-seq (java.io.BufferedReader. 
+              (java.io.StringReader. string))))
+
 (describe "response builder"
   (it "should have a response line"
-    (let [response (build-response "title" "content")]
+    (let [response (build-response [(str-to-seq "hello\n") 200])]
       (should= "HTTP/1.1 200 OK" 
                       (first response))))
 
-  (it "should have the given title"
-    (let [response (build-response "title" "content")]
-      (should-contain "<title>title</title>" (join response))))
-
-  (it "should have the given content"
-    (let [response (build-response "title" "content")]
-      (should-contain #"<body>\s*content\s*</body>" (join response))))
-
+  (it "should provide full correct response"
+    (let [response (build-response [(str-to-seq "hello\nworld\n") 200])]
+      (should= (seq ["HTTP/1.1 200 OK" "" "hello" "world" ""])
+               response)))
 )

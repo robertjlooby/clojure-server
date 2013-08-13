@@ -1,15 +1,7 @@
 (ns clojure_server.response-builder)
 
-(defn build-response [title, content]
-  ["HTTP/1.1 200 OK"
-   ""
-   "<!DOCTYPE html>"
-   "<html>"
-   "<head>"
-   (str "<title>" title "</title>")
-   "</head>"
-   "<body>"
-   content
-   "</body>"
-   "</html>"
-   ""])
+(defn build-response [router-response]
+  (lazy-cat
+    (list (str "HTTP/1.1 " (second router-response) " OK") "")
+    (first router-response)
+    '("")))
