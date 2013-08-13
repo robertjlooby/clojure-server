@@ -1,5 +1,6 @@
 (ns clojure_server.server
-  (:require [clojure_server.core :refer :all])
+  (:require [clojure_server.core :refer :all]
+            [clojure_server.router :refer :all])
   (:use clojure.contrib.command-line)
   (:gen-class))
 
@@ -10,4 +11,6 @@
      [directory d "The directory to serve files from"]]
   (with-open [server-socket (create-server-socket (read-string port)
                             (java.net.InetAddress/getByName "localhost"))]
-    (server server-socket directory))))
+    (defrouter router [request params]
+      (GET "/" [(file-seq (clojure.java.io/file directory)) 200]))
+    (server server-socket directory router))))
