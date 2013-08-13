@@ -1,7 +1,9 @@
 (ns clojure_server.core-spec
   (:require [speclj.core :refer :all]
-            [clojure_server.core :refer :all])
-  (:import java.net.Socket))
+            [clojure_server.core :refer :all]
+            [clojure_server.router :refer :all])
+  (:import java.net.Socket
+           java.io.File))
 
 (defn connect-socket [addr port]
   (try
@@ -50,4 +52,21 @@
                 o-stream (socket-out-writer client-socket)]
             (.println o-stream "GET /helloworld HTTP/1.1\r\n")
             (should-contain "/helloworld" i-stream))))))
+)
+
+(describe "server"
+  (it "listens to the socket and can serve a static directory"
+    (let [path (.getAbsolutePath (File.
+                                    (.getAbsolutePath (File. ""))
+                                    "public"))
+          addr (java.net.InetAddress/getByName "localhost")]
+      (with-open [server-socket (create-server-socket 3001 addr)]
+        (defrouter router [request params]
+          (GET "/" [(file-seq (clojure.java.io/file path)) 200]))
+        (future (server server-socket path router))
+        (with-open [client-socket (connect-socket addr 3001)]
+          (let [i-stream (socket-in-seq client-socket)
+                o-stream (socket-out-writer client-socket)]
+            (.println o-stream "GET / HTTP/1.1\r\n")
+            (should-contain path i-stream))))))
 )
