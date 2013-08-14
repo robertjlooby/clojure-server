@@ -96,6 +96,6 @@
   (it "should give a 404 error if no path matches"
     (defrouter my-router [request params]
       (GET "/" ["root" 200]))
-    (should= ["Not Found" 404] (my-router
-                                 {:method "GET" :path "/foo"})))
+    (should= ['("Not Found") 404] (my-router
+                                    {:method "GET" :path "/foo"})))
 )
