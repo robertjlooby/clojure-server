@@ -35,7 +35,8 @@
 
 (defmacro defrouter [router-name args & routes]
   `(defn ~router-name [~(first args)]
-     ~(list* 'cond 
+     ~(concat
+       (list* 'cond 
             (apply concat
               (map #(list `(and (= ~(str (first %)) 
                                     (:method ~(first args)))
@@ -46,4 +47,5 @@
                                        ~(second %)
                                        (:path ~(first args)))]
                              ~(last %)))
-                   routes)))))
+                   routes)))
+       '(:else ["Not Found" 404]))))

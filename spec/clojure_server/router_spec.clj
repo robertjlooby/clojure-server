@@ -92,4 +92,10 @@
              (my-router {:method "GET" :path "/file1"}))
     (should= ["File = file2" 200]
              (my-router {:method "GET" :path "/file2"})))
+
+  (it "should give a 404 error if no path matches"
+    (defrouter my-router [request params]
+      (GET "/" ["root" 200]))
+    (should= ["Not Found" 404] (my-router
+                                 {:method "GET" :path "/foo"})))
 )
