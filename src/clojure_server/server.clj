@@ -15,6 +15,6 @@
       (GET "/" (serve-file directory))
       (PUT "/form" ['("PUT to form") 200])
       (POST "/form" ['("POST to form") 200])
-      (OPTIONS "/method_options" ['({:allow "POST,GET"}) 200])
+      (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
       (GET "/:file" (serve-file (str directory "/" (:file params)))))
     (server server-socket directory router))))
