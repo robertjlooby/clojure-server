@@ -13,5 +13,7 @@
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
       (GET "/" (serve-file directory))
+      (PUT "/form" ['("PUT to form") 200])
+      (POST "/form" ['("POST to form") 200])
       (GET "/:file" (serve-file (str directory "/" (:file params)))))
     (server server-socket directory router))))
