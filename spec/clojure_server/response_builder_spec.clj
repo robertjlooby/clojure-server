@@ -10,6 +10,9 @@
   (it "should return '200 OK' for 200"
     (should= "200 OK" (status-code-converter 200)))
 
+  (it "should return '401 Unauthorized' for 401"
+    (should= "401 Unauthorized" (status-code-converter 401)))
+
   (it "should return '404 Not Found' for 404"
     (should= "404 Not Found" (status-code-converter 404)))
 
