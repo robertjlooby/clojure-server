@@ -17,4 +17,9 @@
     (let [response (build-response [(str-to-seq "hello\nworld\n") 200])]
       (should= (seq ["HTTP/1.1 200 OK" "" "hello" "world" ""])
                response)))
+
+  (it "should give the correct response for a 404 Error"
+    (let [response (build-response ['("Not Found") 404])]
+      (should= (seq ["HTTP/1.1 404 OK" "" "Not Found" ""])
+               response)))
 )
