@@ -48,9 +48,9 @@
   (let [file (clojure.java.io/file path)]
     (if (.exists file)
       (if (.isDirectory file)
-        [(serve-directory file) 200]
-        [(file-in-seq path) 200])
-      ['("Not Found") 404])))
+        [{:content (serve-directory file)} 200]
+        [{:content (file-in-seq path)} 200])
+      [{:content '("Not Found")} 404])))
 
 (defn echo-server [server-socket]
   (loop []
