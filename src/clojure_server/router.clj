@@ -41,5 +41,9 @@
                                     (:method ~(first args)))
                                 (params-match ~(second %) 
                                     (:path ~(first args))))
-                           (last %))
+                           `(let [~(second args)
+                                     (params-match
+                                       ~(second %)
+                                       (:path ~(first args)))]
+                             ~(last %)))
                    routes)))))

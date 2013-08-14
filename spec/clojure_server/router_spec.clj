@@ -83,4 +83,13 @@
              (my-router {:method "GET" :path "/file1/rob"}))
     (should= ["matched 3 params" 200]
              (my-router {:method "GET" :path "/file1/rob/42"})))
+
+  (it "should match a path with a keyword param and have access to the params hash"
+    (defrouter my-router [request params]
+      (GET "/" ["root" 200])
+      (GET "/:file" [(str "File = " (:file params))  200]))
+    (should= ["File = file1" 200]
+             (my-router {:method "GET" :path "/file1"}))
+    (should= ["File = file2" 200]
+             (my-router {:method "GET" :path "/file2"})))
 )
