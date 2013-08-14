@@ -60,13 +60,19 @@
                                     (.getAbsolutePath (File. ""))
                                     "public"))
           addr (java.net.InetAddress/getByName "localhost")]
-      (with-open [server-socket (create-server-socket 3001 addr)]
+      (with-open [server-socket (create-server-socket 3000 addr)]
         (defrouter router [request params]
           (GET "/" [(file-seq (clojure.java.io/file path)) 200]))
         (future (server server-socket path router))
-        (with-open [client-socket (connect-socket addr 3001)]
+        (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-in-seq client-socket)
                 o-stream (socket-out-writer client-socket)]
             (.println o-stream "GET / HTTP/1.1\r\n")
-            (should-contain path i-stream))))))
+            (should-contain path (take 5 i-stream))))
+        (with-open [client-socket (connect-socket addr 3000)]
+          (let [i-stream (socket-in-seq client-socket)
+                o-stream (socket-out-writer client-socket)]
+            (.println o-stream "GET /foobar HTTP/1.1\r\n")
+            (should-contain "HTTP/1.1 404 Not Found" 
+                            (take 3 i-stream)))))))
 )
