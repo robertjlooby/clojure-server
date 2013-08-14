@@ -12,6 +12,8 @@
     (list 
       (str "HTTP/1.1 " 
            (status-code-converter (second router-response))))
+    (map #(str (name (first %)) ": " (second %)) 
+         (:headers (first router-response)))
     '("")
-    (first router-response)
+    (:content (first router-response))
     '("")))

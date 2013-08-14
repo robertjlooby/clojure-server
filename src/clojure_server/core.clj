@@ -58,7 +58,7 @@
       (let [i-stream (socket-in-seq socket)
             o-stream (socket-out-writer socket)
             headers  (parse-headers i-stream)
-            response (build-response [(seq [(:path headers)]) 200])]
+            response (build-response [{:content (seq [(:path headers)])} 200])]
         (doseq [line response]
           (.println o-stream line))))
     (if (.isClosed server-socket) (prn "echo-server exiting, socket closed") (recur))))
