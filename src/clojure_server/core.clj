@@ -28,6 +28,19 @@
   (reader-seq (java.io.FileReader. 
                 (clojure.java.io/file file-path))))
 
+(defn serve-directory [path]
+  (concat
+    ["<!DOCTYPE html>"
+     "<html>"
+     "<head>" 
+     "</head>"
+     "<body>"
+     path]
+    (map #(str "<div><a href=\"/" (.getName %) "\">" (.getName %) "</a></div>")
+      (.listFiles (clojure.java.io/file path)))
+    ["</body>"
+     "</html>"]))
+
 (defn echo-server [server-socket]
   (loop []
     (with-open [socket (listen server-socket)]

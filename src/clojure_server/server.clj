@@ -12,5 +12,5 @@
   (with-open [server-socket (create-server-socket (read-string port)
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
-      (GET "/" [(file-seq (clojure.java.io/file directory)) 200]))
+      (GET "/" [(serve-directory directory) 200]))
     (server server-socket directory router))))

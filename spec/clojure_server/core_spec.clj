@@ -54,6 +54,27 @@
             (should-contain "/helloworld" i-stream))))))
 )
 
+(describe "serve-directory"
+  (with path (.getAbsolutePath (File.
+                                  (.getAbsolutePath (File. ""))
+                                  "public")))
+
+  (it "should have the name of the directory served"
+    (should-contain @path (serve-directory @path)))
+
+  (it "should have links to files in directory"
+    (should-contain "<div><a href=\"/image.gif\">image.gif</a></div>"
+                    (serve-directory @path))
+    (should-contain "<div><a href=\"/file1\">file1</a></div>"
+                    (serve-directory @path)))
+  
+  (it "should serve as HTML page"
+    (should-contain "<!DOCTYPE html>"
+                    (serve-directory @path))
+    (should-contain "<body>"
+                    (serve-directory @path)))
+)
+
 (describe "server"
   (it "listens to the socket and can serve a static directory"
     (let [path (.getAbsolutePath (File.
