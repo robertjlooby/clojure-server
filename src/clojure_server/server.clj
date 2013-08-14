@@ -13,8 +13,9 @@
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
       (GET "/" (serve-file directory))
-      (PUT "/form" ['("PUT to form") 200])
-      (POST "/form" ['("POST to form") 200])
+      (PUT "/form" [{:content '("PUT to form")} 200])
+      (POST "/form" [{:content '("POST to form")} 200])
       (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
+      (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
       (GET "/:file" (serve-file (str directory "/" (:file params)))))
     (server server-socket directory router))))
