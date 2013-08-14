@@ -21,25 +21,36 @@
   (let [in-buffer (java.io.BufferedReader. reader)]
     (repeatedly #(.readLine in-buffer))))
 
+(defn buffered-seq [reader]
+  (line-seq (java.io.BufferedReader. reader)))
+
 (defn socket-in-seq [socket]
   (reader-seq (java.io.InputStreamReader. (.getInputStream socket))))
 
 (defn file-in-seq [file-path]
-  (reader-seq (java.io.FileReader. 
+  (buffered-seq (java.io.FileReader. 
                 (clojure.java.io/file file-path))))
 
-(defn serve-directory [path]
+(defn serve-directory [dir]
   (concat
     ["<!DOCTYPE html>"
      "<html>"
      "<head>" 
      "</head>"
      "<body>"
-     path]
+     (.getAbsolutePath dir)]
     (map #(str "<div><a href=\"/" (.getName %) "\">" (.getName %) "</a></div>")
-      (.listFiles (clojure.java.io/file path)))
+      (.listFiles dir))
     ["</body>"
      "</html>"]))
+
+(defn serve-file [path]
+  (let [file (clojure.java.io/file path)]
+    (if (.exists file)
+      (if (.isDirectory file)
+        [(serve-directory file) 200]
+        [(file-in-seq path) 200])
+      ['("Not Found") 404])))
 
 (defn echo-server [server-socket]
   (loop []

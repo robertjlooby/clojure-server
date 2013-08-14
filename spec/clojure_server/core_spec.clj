@@ -54,25 +54,41 @@
             (should-contain "/helloworld" i-stream))))))
 )
 
-(describe "serve-directory"
-  (with path (.getAbsolutePath (File.
+(describe "serve-file"
+  (with dirpath (.getAbsolutePath (File.
                                   (.getAbsolutePath (File. ""))
                                   "public")))
+  (with goodpath (.getAbsolutePath (File. @dirpath "file1")))
+  (with badpath (.getAbsolutePath (File. @dirpath "file1000")))
+
+  (it "should return vector response"
+    (should= (class []) (class (serve-file @goodpath)))
+    (should= true (seq? (first (serve-file @goodpath))))
+    (should= (class 200) (class (second (serve-file @goodpath))))
+    (should= 2 (count (serve-file @goodpath))))
+
+  (it "should have the contents of the file"
+    (should-contain "file1 contents" (first (serve-file @goodpath)))
+    (should= 200 (second (serve-file @goodpath))))
+
+  (it "should return a 404 for bad path"
+    (should= 404 (second (serve-file @badpath))))
 
   (it "should have the name of the directory served"
-    (should-contain @path (serve-directory @path)))
+    (should-contain @dirpath (first (serve-file @dirpath)))
+    (should= 200 (second (serve-file @dirpath))))
 
   (it "should have links to files in directory"
     (should-contain "<div><a href=\"/image.gif\">image.gif</a></div>"
-                    (serve-directory @path))
+                    (first (serve-file @dirpath)))
     (should-contain "<div><a href=\"/file1\">file1</a></div>"
-                    (serve-directory @path)))
+                    (first (serve-file @dirpath))))
   
   (it "should serve as HTML page"
     (should-contain "<!DOCTYPE html>"
-                    (serve-directory @path))
+                    (first (serve-file @dirpath)))
     (should-contain "<body>"
-                    (serve-directory @path)))
+                    (first (serve-file @dirpath))))
 )
 
 (describe "server"

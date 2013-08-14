@@ -12,5 +12,6 @@
   (with-open [server-socket (create-server-socket (read-string port)
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
-      (GET "/" [(serve-directory directory) 200]))
+      (GET "/" (serve-file directory))
+      (GET "/:file" (serve-file (str directory "/" (:file params)))))
     (server server-socket directory router))))
