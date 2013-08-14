@@ -6,6 +6,13 @@
 (defn str-to-seq [string]
   (line-seq (java.io.BufferedReader. 
               (java.io.StringReader. string))))
+(describe "status-code-converter"
+  (it "should return '200 OK' for 200"
+    (should= "200 OK" (status-code-converter 200)))
+
+  (it "should return '404 Not Found' for 404"
+    (should= "404 Not Found" (status-code-converter 404)))
+)
 
 (describe "response builder"
   (it "should have a response line"
@@ -20,6 +27,6 @@
 
   (it "should give the correct response for a 404 Error"
     (let [response (build-response ['("Not Found") 404])]
-      (should= (seq ["HTTP/1.1 404 OK" "" "Not Found" ""])
+      (should= (seq ["HTTP/1.1 404 Not Found" "" "Not Found" ""])
                response)))
 )
