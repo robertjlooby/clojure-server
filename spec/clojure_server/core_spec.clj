@@ -42,16 +42,48 @@
                      (.getLocalPort server-side-socket)))))))
 )
 
-(describe "echo-server"
-  (it "listens to the socket and echos the pathname"
-    (let [addr (java.net.InetAddress/getByName "localhost")]
-      (with-open [server-socket (create-server-socket 3000 addr)]
-        (future (echo-server server-socket))
-        (with-open [client-socket (connect-socket addr 3000)]
-          (let [i-stream (socket-in-seq client-socket)
-                o-stream (socket-out-writer client-socket)]
-            (.println o-stream "GET /helloworld HTTP/1.1\r\n")
-            (should-contain "/helloworld" i-stream))))))
+(describe "read-until-emptyline"
+  (with reader (clojure.java.io/reader 
+                 (java.io.StringReader.
+                   "first\r\nsecond\r\nthird\r\n\r\nnot me!\r\n")))
+
+  (it "reads up to the first empty line"
+    (should= '("first" "second" "third")
+             (read-until-emptyline @reader))
+    (should= '("not me!")
+             (read-until-emptyline @reader)))
+)
+
+(describe "read-n-bytes"
+  (with reader (clojure.java.io/reader 
+                 (java.io.StringReader.
+                   "first\r\nsecond\r\nthird\r\n\r\n")))
+
+  (it "reads n bytes of the string"
+    (should= '("first") (read-n-bytes @reader 5)))
+
+  (it "reads n bytes of the string into seq of lines"
+    (should= '("first" "second" "th") (read-n-bytes @reader 17)))
+
+  (it "reads to end of input"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 24)))
+
+  (it "only reads to end of input"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 25)))
+
+  (it "only reads to end of input, even for long num-bytes"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 250)))
+)
+
+(describe "seq-to-file"
+  (it "writes the seq of strings to a file"
+    (let [f (java.io.File/createTempFile "temp" ".html")]
+      (seq-to-file f '("this" "is" "text"))
+      (should= '("this" "is" "text") (file-to-seq
+                                       (.getAbsolutePath f))))) 
 )
 
 (describe "serve-file"
@@ -91,6 +123,21 @@
                     (:content (first (serve-file @dirpath)))))
 )
 
+(describe "echo-server"
+  (it "listens to the socket and echos the pathname"
+    (let [addr (java.net.InetAddress/getByName "localhost")]
+      (with-open [server-socket (create-server-socket 3000 addr)]
+        (future (echo-server server-socket))
+        (with-open [client-socket (connect-socket addr 3000)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
+            (.println o-stream "GET /helloworld HTTP/1.1\r\n")
+            (let [headers (doall (read-until-emptyline i-stream))]
+              (should-contain "HTTP/1.1 200 OK" headers))
+            (should-contain "/helloworld" 
+                            (read-until-emptyline i-stream)))))))
+)
+
 (describe "server"
   (it "listens to the socket and can serve a static directory"
     (let [path (.getAbsolutePath (File.
@@ -99,17 +146,20 @@
           addr (java.net.InetAddress/getByName "localhost")]
       (with-open [server-socket (create-server-socket 3000 addr)]
         (defrouter router [request params]
-          (GET "/" [{:content (file-seq (clojure.java.io/file path))} 200]))
+          (GET "/"(serve-file path)))
         (future (server server-socket path router))
         (with-open [client-socket (connect-socket addr 3000)]
-          (let [i-stream (socket-in-seq client-socket)
-                o-stream (socket-out-writer client-socket)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
             (.println o-stream "GET / HTTP/1.1\r\n")
-            (should-contain path (take 5 i-stream))))
+            (let [headers (doall (read-until-emptyline i-stream))]
+              (should-contain "HTTP/1.1 200 OK" headers))
+            (should-contain path
+                            (read-until-emptyline i-stream))))
         (with-open [client-socket (connect-socket addr 3000)]
-          (let [i-stream (socket-in-seq client-socket)
-                o-stream (socket-out-writer client-socket)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
             (.println o-stream "GET /foobar HTTP/1.1\r\n")
             (should-contain "HTTP/1.1 404 Not Found" 
-                            (take 3 i-stream)))))))
+                            (read-until-emptyline i-stream)))))))
 )
