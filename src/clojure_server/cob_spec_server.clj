@@ -1,5 +1,6 @@
 (ns clojure_server.cob-spec-server
-  (:require [clojure_server.server :refer :all]
+  (:require [clojure.data.codec.base64 :refer :all]
+            [clojure_server.server :refer :all]
             [clojure_server.router :refer :all])
   (:use clojure.contrib.command-line)
   (:gen-class))
@@ -23,6 +24,24 @@
   (write-body-to-file path (:body request))
   (serve-file path))
 
+(defn get-logs [request]
+  (let [auth (:Authorization (:headers request))]
+    (if-not auth [{:content '("Authentication required")} 401]
+      (let [pass (second (clojure.string/split auth #" "))
+            decoded (apply str
+                           (map char
+                                (decode 
+                                  (bytes 
+                                    (byte-array 
+                                      (map 
+                                        (comp byte int) pass))))))]
+        (if (= decoded "admin:hunter2")
+          [{:content '("GET /log HTTP/1.1"
+                       "PUT /these HTTP/1.1"
+                       "HEAD /requests HTTP/1.1")} 200]
+          [{:content '("Authentication required")} 401])))))
+
+
 (defn -main [& args]
   (with-command-line args
     "Usage...."
@@ -39,6 +58,6 @@
       (POST "/form" (write-form (str directory "/form") request))
       (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
       (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
-      (GET "/logs" [{:content '("Authentication required")} 401])
+      (GET "/logs" (get-logs request))
       (GET "/:file" (serve-file (str directory "/" (:file params)))))
     (server server-socket directory router))))
