@@ -2,6 +2,7 @@
 
 (defn status-code-converter [status-code]
   (let [codes {200 "OK"
+               206 "Partial Content"
                301 "Moved Permanently"
                401 "Unauthorized"
                404 "Not Found"

@@ -56,35 +56,48 @@
                                   "public")))
   (with goodpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1")))
   (with badpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1000")))
+  (with partial-path (.getAbsolutePath (clojure.java.io/file @dirpath "partial_content.txt")))
 
   (it "should return vector response"
-    (should= (class []) (class (serve-file @goodpath)))
-    (should= true (seq? (:content (first (serve-file @goodpath)))))
-    (should= (class 200) (class (second (serve-file @goodpath))))
-    (should= 2 (count (serve-file @goodpath))))
+    (should= (class []) (class (serve-file @goodpath {})))
+    (should= true (seq? (:content (first (serve-file @goodpath {})))))
+    (should= (class 200) (class (second (serve-file @goodpath {}))))
+    (should= 2 (count (serve-file @goodpath {}))))
 
   (it "should have the contents of the file"
-    (should-contain "file1 contents" (:content (first (serve-file @goodpath))))
-    (should= 200 (second (serve-file @goodpath))))
+    (should-contain "file1 contents" (:content (first (serve-file @goodpath {}))))
+    (should= 200 (second (serve-file @goodpath {}))))
 
   (it "should return a 404 for bad path"
-    (should= 404 (second (serve-file @badpath))))
+    (should= 404 (second (serve-file @badpath {}))))
+
+  (it "should return 206 for partial content"
+    (should= 206 (second (serve-file @partial-path {:headers
+                                                    {:Range "bytes=0-4"}}))))
+
+  (it "should return the partial content"
+    (should= {:content '("This")} (first (serve-file @partial-path {:headers
+                                                    {:Range "bytes=0-4"}}))))
+
+  (it "should return the partial content when not starting at 0"
+    (should= {:content '(" is a")} (first (serve-file @partial-path {:headers
+                                                    {:Range "bytes=4-9"}}))))
 
   (it "should have the name of the directory served"
-    (should-contain @dirpath (:content (first (serve-file @dirpath))))
-    (should= 200 (second (serve-file @dirpath))))
+    (should-contain @dirpath (:content (first (serve-file @dirpath {}))))
+    (should= 200 (second (serve-file @dirpath {}))))
 
   (it "should have links to files in directory"
     (should-contain "<div><a href=\"/image.gif\">image.gif</a></div>"
-                    (:content (first (serve-file @dirpath))))
+                    (:content (first (serve-file @dirpath {}))))
     (should-contain "<div><a href=\"/file1\">file1</a></div>"
-                    (:content (first (serve-file @dirpath)))))
+                    (:content (first (serve-file @dirpath {})))))
   
   (it "should serve as HTML page"
     (should-contain "<!DOCTYPE html>"
-                    (:content (first (serve-file @dirpath))))
+                    (:content (first (serve-file @dirpath {}))))
     (should-contain "<body>"
-                    (:content (first (serve-file @dirpath)))))
+                    (:content (first (serve-file @dirpath {})))))
 )
 
 (describe "echo-server"
@@ -110,7 +123,8 @@
           addr (java.net.InetAddress/getByName "localhost")]
       (with-open [server-socket (create-server-socket 3000 addr)]
         (defrouter test-router [request params]
-          (GET "/"(serve-file path)))
+          (GET "/"(serve-file path request))
+          (GET "/file1" (serve-file (str path "/file1") request)))
         (future (server server-socket path test-router))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
@@ -120,6 +134,15 @@
                             (doall (read-until-emptyline i-stream)))
             (should-contain path
                             (read-until-emptyline i-stream))))
+        (with-open [client-socket (connect-socket addr 3000)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
+            (.println o-stream "GET /file1 HTTP/1.1")
+            (.println o-stream "Range: bytes=0-4\r\n")
+            (should-contain "HTTP/1.1 206 Partial Content"
+                            (doall (read-until-emptyline i-stream)))
+            (should= '("file")
+                            (read-n-bytes i-stream 100))))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]

@@ -40,12 +40,20 @@
     ["</body>"
      "</html>"]))
 
-(defn serve-file [path]
+(defn serve-file [path request]
   (let [file (clojure.java.io/file path)]
     (if (.exists file)
       (cond
         (.isDirectory file)
           [{:content (serve-directory file)} 200]
+        (:Range (:headers request))
+          (let [[_ f l] (first (re-seq #"bytes=(\d+)-(\d+)"
+                                (:Range (:headers request))))
+                begin (Integer/parseInt f)
+                end   (Integer/parseInt l)
+                reader (clojure.java.io/reader file)
+                _ (read-n-bytes reader begin)]
+            [{:content (read-n-bytes reader (- end begin))} 206])
         :else
           [{:content (file-to-seq path)} 200])
       [{:content '("Not Found")} 404])))
@@ -68,6 +76,12 @@
             request  (parse-request socket)
             router-response (router request)
             response (build-response router-response)]
-        (doseq [line response]
-          (.println o-stream line))))
+        (if (re-matches #".*206.*" (first response))
+          (let [to-print (butlast response)]
+            (doseq [line (butlast to-print)]
+              (.println o-stream line))
+            (.print o-stream (last to-print))
+            (.flush o-stream))
+          (doseq [line response]
+            (.println o-stream line)))))
     (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))

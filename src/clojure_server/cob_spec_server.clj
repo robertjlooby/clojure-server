@@ -22,7 +22,7 @@
 
 (defn write-form [path request]
   (write-body-to-file path (:body request))
-  (serve-file path))
+  (serve-file path request))
 
 (defn get-logs [request]
   (let [auth (:Authorization (:headers request))]
@@ -53,11 +53,11 @@
   (with-open [server-socket (create-server-socket (Integer/parseInt port)
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
-      (GET "/" (serve-file directory))
+      (GET "/" (serve-file directory request))
       (PUT "/form"  (write-form (str directory "/form") request))
       (POST "/form" (write-form (str directory "/form") request))
       (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
       (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
       (GET "/logs" (get-logs request))
-      (GET "/:file" (serve-file (str directory "/" (:file params)))))
+      (GET "/:file" (serve-file (str directory "/" (:file params)) request)))
     (server server-socket directory router))))
