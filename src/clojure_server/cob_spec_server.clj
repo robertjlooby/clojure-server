@@ -28,7 +28,7 @@
   (let [form (clojure.java.io/file directory "form")]
     (.createNewFile form)
     (.deleteOnExit form))
-  (with-open [server-socket (create-server-socket (read-string port)
+  (with-open [server-socket (create-server-socket (Integer/parseInt port)
                             (java.net.InetAddress/getByName "localhost"))]
     (defrouter router [request params]
       (GET "/" (serve-file directory))
