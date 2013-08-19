@@ -1,6 +1,6 @@
-(ns clojure_server.header-parser-spec
+(ns clojure_server.request-parser-spec
   (:require [speclj.core :refer :all]
-            [clojure_server.header-parser :refer :all]))
+            [clojure_server.request-parser :refer :all]))
 
 (describe "header parser"
   (with get-seq '("GET /helloworld HTTP/1.1"

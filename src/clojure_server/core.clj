@@ -1,5 +1,5 @@
 (ns clojure_server.core
-  (:require [clojure_server.header-parser :refer :all]
+  (:require [clojure_server.request-parser :refer :all]
             [clojure_server.response-builder :refer :all]
             [clojure_server.router :refer :all])
   (:import java.net.ServerSocket))

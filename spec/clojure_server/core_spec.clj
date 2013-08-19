@@ -132,8 +132,8 @@
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]
             (.println o-stream "GET /helloworld HTTP/1.1\r\n")
-            (let [headers (doall (read-until-emptyline i-stream))]
-              (should-contain "HTTP/1.1 200 OK" headers))
+            (should-contain "HTTP/1.1 200 OK" 
+                            (doall (read-until-emptyline i-stream)))
             (should-contain "/helloworld" 
                             (read-until-emptyline i-stream)))))))
 )
@@ -152,8 +152,8 @@
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]
             (.println o-stream "GET / HTTP/1.1\r\n")
-            (let [headers (doall (read-until-emptyline i-stream))]
-              (should-contain "HTTP/1.1 200 OK" headers))
+            (should-contain "HTTP/1.1 200 OK"
+                            (doall (read-until-emptyline i-stream)))
             (should-contain path
                             (read-until-emptyline i-stream))))
         (with-open [client-socket (connect-socket addr 3000)]

@@ -1,4 +1,4 @@
-(ns clojure_server.header-parser)
+(ns clojure_server.request-parser)
 
 (defn parse-headers [in-seq]
   (let [request-line (clojure.string/split (first in-seq) 
