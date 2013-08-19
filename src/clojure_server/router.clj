@@ -39,13 +39,13 @@
        (list* 'cond 
             (apply concat
               (map #(list `(and (= ~(str (first %)) 
-                                    (:method ~(first args)))
+                                    (:method (:headers ~(first args))))
                                 (params-match ~(second %) 
-                                    (:path ~(first args))))
+                                    (:path (:headers ~(first args)))))
                            `(let [~(second args)
                                      (params-match
                                        ~(second %)
-                                       (:path ~(first args)))]
+                                       (:path (:headers ~(first args))))]
                              ~(last %)))
                    routes)))
        '(:else ['("Not Found") 404]))))

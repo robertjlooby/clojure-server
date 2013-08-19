@@ -48,26 +48,27 @@
       (GET "/hello" ["hello route", 200])
       (POST "/heythere" ["heythere route", 200]))
     (should= ["hello route", 200] 
-             (my-router {:method "GET" :path "/hello"}))
+             (my-router {:headers {:method "GET" :path "/hello"}}))
     (should= ["heythere route", 200]
-             (my-router {:method "POST" :path "/heythere"})))
+             (my-router {:headers {:method "POST" :path "/heythere"}})))
 
   (it "should call functions to generate response"
     (defn generator [method path]
       [(str method " " path), 200])
     (defrouter my-router [request params]
-      (GET "/testpath" (generator (:method request) (:path request))))
+      (GET "/testpath" (generator (:method (:headers request)) 
+                                  (:path (:headers request)))))
     (should= ["GET /testpath", 200]
-             (my-router {:method "GET" :path "/testpath"})))
+             (my-router {:headers {:method "GET" :path "/testpath"}})))
 
   (it "should match a path with a keyword param"
     (defrouter my-router [request params]
       (GET "/" ["root" 200])
       (GET "/:file" ["matched file" 200]))
     (should= ["root" 200]
-             (my-router {:method "GET" :path "/"}))
+             (my-router {:headers {:method "GET" :path "/"}}))
     (should= ["matched file" 200]
-             (my-router {:method "GET" :path "/file1"})))
+             (my-router {:headers {:method "GET" :path "/file1"}})))
 
   (it "should match a path with a multiple keyword params"
     (defrouter my-router [request params]
@@ -76,26 +77,26 @@
       (GET "/:file/:user"      ["matched 2 params" 200])
       (GET "/:file/:user/:num" ["matched 3 params" 200]))
     (should= ["root" 200]
-             (my-router {:method "GET" :path "/"}))
+             (my-router {:headers {:method "GET" :path "/"}}))
     (should= ["matched 1 param" 200]
-             (my-router {:method "GET" :path "/file1"}))
+             (my-router {:headers {:method "GET" :path "/file1"}}))
     (should= ["matched 2 params" 200]
-             (my-router {:method "GET" :path "/file1/rob"}))
+             (my-router {:headers {:method "GET" :path "/file1/rob"}}))
     (should= ["matched 3 params" 200]
-             (my-router {:method "GET" :path "/file1/rob/42"})))
+             (my-router {:headers {:method "GET" :path "/file1/rob/42"}})))
 
   (it "should match a path with a keyword param and have access to the params hash"
     (defrouter my-router [request params]
       (GET "/" ["root" 200])
       (GET "/:file" [(str "File = " (:file params))  200]))
     (should= ["File = file1" 200]
-             (my-router {:method "GET" :path "/file1"}))
+             (my-router {:headers {:method "GET" :path "/file1"}}))
     (should= ["File = file2" 200]
-             (my-router {:method "GET" :path "/file2"})))
+             (my-router {:headers {:method "GET" :path "/file2"}})))
 
   (it "should give a 404 error if no path matches"
     (defrouter my-router [request params]
       (GET "/" ["root" 200]))
     (should= ['("Not Found") 404] (my-router
-                                    {:method "GET" :path "/foo"})))
+                                    {:headers {:method "GET" :path "/foo"}})))
 )

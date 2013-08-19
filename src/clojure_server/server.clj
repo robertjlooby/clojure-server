@@ -53,11 +53,10 @@
 (defn echo-server [server-socket]
   (loop []
     (with-open [socket (listen server-socket)]
-      (let [i-stream (socket-reader socket)
-            o-stream (socket-writer socket)
-            headers  (parse-headers
-                       (read-until-emptyline i-stream))
-            response (build-response [{:content (seq [(:path headers)])} 200])]
+      (let [o-stream (socket-writer socket)
+            request  (parse-request socket)
+            response (build-response 
+                       [{:content [(:path (:headers request))]} 200])]
         (doseq [line response]
           (.println o-stream line))))
     (if (.isClosed server-socket) (prn "echo-server exiting, socket closed") (recur))))
@@ -65,11 +64,9 @@
 (defn server [server-socket directory router]
   (loop []
     (with-open [socket (listen server-socket)]
-      (let [i-stream (socket-reader socket)
-            o-stream (socket-writer socket)
-            headers  (parse-headers
-                       (read-until-emptyline i-stream))
-            router-response (router headers)
+      (let [o-stream (socket-writer socket)
+            request  (parse-request socket)
+            router-response (router request)
             response (build-response router-response)]
         (doseq [line response]
           (.println o-stream line))))
