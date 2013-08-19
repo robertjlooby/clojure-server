@@ -7,5 +7,5 @@
   :profiles {:dev {:dependencies [[speclj "2.5.0"]]}}
   :plugins [[speclj "2.5.0"]]
   :jvm-opts ["-Dline.separator=\r\n"]
-  :main clojure_server.server
+  :main clojure_server.cob-spec-server
   :test-paths ["spec"])

@@ -1,13 +1,13 @@
-(ns clojure_server.core-spec
+(ns clojure_server.server-spec
   (:require [speclj.core :refer :all]
-            [clojure_server.core :refer :all]
-            [clojure_server.router :refer :all])
-  (:import java.net.Socket
-           java.io.File))
+            [clojure_server.request-parser :refer :all]
+            [clojure_server.response-builder :refer :all]
+            [clojure_server.router :refer :all]
+            [clojure_server.server :refer :all]))
 
 (defn connect-socket [addr port]
   (try
-    (Socket. addr port)
+    (java.net.Socket. addr port)
     (catch java.net.ConnectException e 
       (connect-socket addr port))))
 
@@ -42,42 +42,6 @@
                      (.getLocalPort server-side-socket)))))))
 )
 
-(describe "read-until-emptyline"
-  (with reader (clojure.java.io/reader 
-                 (java.io.StringReader.
-                   "first\r\nsecond\r\nthird\r\n\r\nnot me!\r\n")))
-
-  (it "reads up to the first empty line"
-    (should= '("first" "second" "third")
-             (read-until-emptyline @reader))
-    (should= '("not me!")
-             (read-until-emptyline @reader)))
-)
-
-(describe "read-n-bytes"
-  (with reader (clojure.java.io/reader 
-                 (java.io.StringReader.
-                   "first\r\nsecond\r\nthird\r\n\r\n")))
-
-  (it "reads n bytes of the string"
-    (should= '("first") (read-n-bytes @reader 5)))
-
-  (it "reads n bytes of the string into seq of lines"
-    (should= '("first" "second" "th") (read-n-bytes @reader 17)))
-
-  (it "reads to end of input"
-    (should= '("first" "second" "third" "")
-             (read-n-bytes @reader 24)))
-
-  (it "only reads to end of input"
-    (should= '("first" "second" "third" "")
-             (read-n-bytes @reader 25)))
-
-  (it "only reads to end of input, even for long num-bytes"
-    (should= '("first" "second" "third" "")
-             (read-n-bytes @reader 250)))
-)
-
 (describe "seq-to-file"
   (it "writes the seq of strings to a file"
     (let [f (java.io.File/createTempFile "temp" ".html")]
@@ -87,11 +51,11 @@
 )
 
 (describe "serve-file"
-  (with dirpath (.getAbsolutePath (File.
-                                  (.getAbsolutePath (File. ""))
+  (with dirpath (.getAbsolutePath (clojure.java.io/file
+                                  (.getAbsolutePath (clojure.java.io/file ""))
                                   "public")))
-  (with goodpath (.getAbsolutePath (File. @dirpath "file1")))
-  (with badpath (.getAbsolutePath (File. @dirpath "file1000")))
+  (with goodpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1")))
+  (with badpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1000")))
 
   (it "should return vector response"
     (should= (class []) (class (serve-file @goodpath)))
@@ -140,14 +104,14 @@
 
 (describe "server"
   (it "listens to the socket and can serve a static directory"
-    (let [path (.getAbsolutePath (File.
-                                    (.getAbsolutePath (File. ""))
+    (let [path (.getAbsolutePath (clojure.java.io/file
+                                    (.getAbsolutePath (clojure.java.io/file ""))
                                     "public"))
           addr (java.net.InetAddress/getByName "localhost")]
       (with-open [server-socket (create-server-socket 3000 addr)]
-        (defrouter router [request params]
+        (defrouter test-router [request params]
           (GET "/"(serve-file path)))
-        (future (server server-socket path router))
+        (future (server server-socket path test-router))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]

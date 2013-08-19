@@ -1,43 +1,76 @@
 (ns clojure_server.server
-  (:require [clojure_server.core :refer :all]
-            [clojure_server.router :refer :all])
-  (:use clojure.contrib.command-line)
-  (:gen-class))
+  (:require [clojure_server.request-parser :refer :all]
+            [clojure_server.response-builder :refer :all]
+            [clojure_server.router :refer :all]))
 
-(defn write-body-to-file [path body-seq]
-  (seq-to-file (clojure.java.io/file path)
-               (concat
-                ["<!DOCTYPE html>"
-                 "<html>"
-                 "<head>" 
-                 "</head>"
-                 "<body>"]
-                body-seq
-                ["</body>"
-                 "</html>"])))
+(defn create-server-socket 
+  ([port] (java.net.ServerSocket. port))
+  ([port address] (java.net.ServerSocket. port 0 address)))
 
-(defn write-form [path headers]
-  (prn "writing to form")
-  (write-body-to-file path (:body headers))
-  (prn "wrote to form, serving new form now")
-  (serve-file path))
+(defn listen [server-socket]
+  (try
+    (.accept server-socket)
+    (catch Exception e (prn (str "exception caught " e)))))
 
-(defn -main [& args]
-  (with-command-line args
-    "Usage...."
-    [[port p "The port to run the server on" "3000"]
-     [directory d "The directory to serve files from"]]
-  (let [form (clojure.java.io/file directory "form")]
-    (.createNewFile form)
-    (.deleteOnExit form))
-  (with-open [server-socket (create-server-socket (read-string port)
-                            (java.net.InetAddress/getByName "localhost"))]
-    (defrouter router [request params]
-      (GET "/" (serve-file directory))
-      (PUT "/form"  (write-form (str directory "/form") request))
-      (POST "/form" (write-form (str directory "/form") request))
-      (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
-      (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
-      (GET "/logs" [{:content '("Authentication required")} 401])
-      (GET "/:file" (serve-file (str directory "/" (:file params)))))
-    (server server-socket directory router))))
+(defn socket-writer [socket]
+  (java.io.PrintWriter.
+    (.getOutputStream socket) true))
+
+(defn file-to-seq [file-path]
+  (line-seq (java.io.BufferedReader. 
+              (java.io.FileReader. 
+                (clojure.java.io/file file-path)))))
+
+(defn seq-to-file [file string-seq]
+  (let [p (java.io.PrintWriter. file)]
+    (doseq [line string-seq]
+      (.println p line))
+    (.flush p)))
+
+(defn serve-directory [dir]
+  (concat
+    ["<!DOCTYPE html>"
+     "<html>"
+     "<head>" 
+     "</head>"
+     "<body>"
+     (.getAbsolutePath dir)]
+    (map #(str "<div><a href=\"/" (.getName %) "\">" (.getName %) "</a></div>")
+      (.listFiles dir))
+    ["</body>"
+     "</html>"]))
+
+(defn serve-file [path]
+  (let [file (clojure.java.io/file path)]
+    (if (.exists file)
+      (cond
+        (.isDirectory file)
+          [{:content (serve-directory file)} 200]
+        :else
+          [{:content (file-to-seq path)} 200])
+      [{:content '("Not Found")} 404])))
+
+(defn echo-server [server-socket]
+  (loop []
+    (with-open [socket (listen server-socket)]
+      (let [i-stream (socket-reader socket)
+            o-stream (socket-writer socket)
+            headers  (parse-headers
+                       (read-until-emptyline i-stream))
+            response (build-response [{:content (seq [(:path headers)])} 200])]
+        (doseq [line response]
+          (.println o-stream line))))
+    (if (.isClosed server-socket) (prn "echo-server exiting, socket closed") (recur))))
+
+(defn server [server-socket directory router]
+  (loop []
+    (with-open [socket (listen server-socket)]
+      (let [i-stream (socket-reader socket)
+            o-stream (socket-writer socket)
+            headers  (parse-headers
+                       (read-until-emptyline i-stream))
+            router-response (router headers)
+            response (build-response router-response)]
+        (doseq [line response]
+          (.println o-stream line))))
+    (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))

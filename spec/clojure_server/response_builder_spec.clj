@@ -22,12 +22,12 @@
 
 (describe "response builder"
   (it "should have a response line"
-    (let [response (build-response [{:content (str-to-seq "hello\n")} 200])]
+    (let [response (build-response [{:content '("hello")} 200])]
       (should= "HTTP/1.1 200 OK" 
                       (first response))))
 
   (it "should provide full correct response"
-    (let [response (build-response [{:content (str-to-seq "hello\nworld\n")} 200])]
+    (let [response (build-response [{:content '("hello" "world")} 200])]
       (should= (seq ["HTTP/1.1 200 OK" "" "hello" "world" ""])
                response)))
 

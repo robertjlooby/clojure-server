@@ -2,7 +2,43 @@
   (:require [speclj.core :refer :all]
             [clojure_server.request-parser :refer :all]))
 
-(describe "header parser"
+(describe "read-until-emptyline"
+  (with reader (clojure.java.io/reader 
+                 (java.io.StringReader.
+                   "first\r\nsecond\r\nthird\r\n\r\nnot me!\r\n")))
+
+  (it "reads up to the first empty line"
+    (should= '("first" "second" "third")
+             (read-until-emptyline @reader))
+    (should= '("not me!")
+             (read-until-emptyline @reader)))
+)
+
+(describe "read-n-bytes"
+  (with reader (clojure.java.io/reader 
+                 (java.io.StringReader.
+                   "first\r\nsecond\r\nthird\r\n\r\n")))
+
+  (it "reads n bytes of the string"
+    (should= '("first") (read-n-bytes @reader 5)))
+
+  (it "reads n bytes of the string into seq of lines"
+    (should= '("first" "second" "th") (read-n-bytes @reader 17)))
+
+  (it "reads to end of input"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 24)))
+
+  (it "only reads to end of input"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 25)))
+
+  (it "only reads to end of input, even for long num-bytes"
+    (should= '("first" "second" "third" "")
+             (read-n-bytes @reader 250)))
+)
+
+(describe "parse-headers"
   (with get-seq '("GET /helloworld HTTP/1.1"
                   "Accept: text/html"
                   "Connection: keep-alive"))
@@ -34,3 +70,4 @@
       (should= "keep-alive" (:Connection headers))
       (should= "text/html" (:Accept headers))))
 )
+
