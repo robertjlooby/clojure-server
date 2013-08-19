@@ -12,7 +12,10 @@
                  "<head>" 
                  "</head>"
                  "<body>"]
-                body-seq
+                [(clojure.string/replace 
+                  body-seq
+                  #"="
+                  " = ")]
                 ["</body>"
                  "</html>"])))
 
