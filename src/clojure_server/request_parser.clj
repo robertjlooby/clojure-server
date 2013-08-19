@@ -29,3 +29,13 @@
           (recur (assoc headers (keyword field) value)
                  (rest lines)))
         headers))))
+
+(defn parse-request [socket]
+  (let [reader (socket-reader socket)
+        headers (parse-headers (read-until-emptyline reader))
+        content-length (:Content-Length headers)
+        body (if content-length
+               (read-n-bytes reader
+                             (Integer/parseInt content-length))
+               '())]
+    {:headers headers :body body}))

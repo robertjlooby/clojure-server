@@ -71,3 +71,25 @@
       (should= "text/html" (:Accept headers))))
 )
 
+(describe "parse-request"
+  (with reader 
+   (java.io.StringReader.
+    "GET /hello HTTP/1.1\r\nContent-Length: 10\r\n\r\nbody\r\ntest"))
+  (with no-body-reader 
+   (java.io.StringReader.
+    "GET /hello HTTP/1.1\r\n\r\n"))
+  (it "should get all the headers"
+    (let [request (parse-request @reader)]
+      (should= "GET" (:method (:headers request)))
+      (should= "/hello" (:path (:headers request)))
+      (should= "HTTP/1.1" (:http-version (:headers request)))
+      (should= "10" (:Content-Length (:headers request)))))
+
+  (it "should get the body"
+    (let [request (parse-request @reader)]
+      (should= '("body" "test") (:body request))))
+
+  (it "should have an empty body if no content length"
+    (let [request (parse-request @no-body-reader)]
+      (should= '() (:body request))))
+)
