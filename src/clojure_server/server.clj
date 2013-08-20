@@ -46,6 +46,10 @@
       (cond
         (.isDirectory file)
           [{:content (serve-directory file)} 200]
+        (= ".gif" (apply str (take-last 4 path)))
+          [{:headers {:media-type "image/gif"
+                     :Content-Length (.length file)}
+            :image-file file} 200]
         (:Range (:headers request))
           (let [[_ f l] (first (re-seq #"bytes=(\d+)-(\d+)"
                                 (:Range (:headers request))))
@@ -78,12 +82,30 @@
                 request  (parse-request socket)
                 router-response (router request)
                 response (build-response router-response)]
-            (if (re-matches #".*206.*" (first response))
+            (cond
+              (= "image/gif" (:media-type
+                               (:headers
+                                 (first router-response))))
+              (let [image-file (:image-file (first router-response))
+                    headers (butlast response)
+                    f-i-stream (java.io.FileInputStream. image-file)
+                    s-o-stream (.getOutputStream socket)
+                    b-a (byte-array 1024)]
+                (doseq [line headers]
+                  (.println o-stream line))
+                (loop [num-read (.read f-i-stream b-a 0 1024)]
+                  (if-not (= -1 num-read)
+                    (do
+                      (.write s-o-stream b-a 0 num-read)
+                      (.flush s-o-stream)
+                      (recur (.read f-i-stream 0 1024))))))
+              (re-matches #".*206.*" (first response))
               (let [to-print (butlast response)]
                 (doseq [line (butlast to-print)]
                   (.println o-stream line))
                 (.print o-stream (last to-print))
                 (.flush o-stream))
+              :else
               (doseq [line response]
                 (.println o-stream line)))))))
     (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))

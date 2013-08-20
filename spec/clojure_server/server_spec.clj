@@ -56,6 +56,7 @@
                                   "public")))
   (with goodpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1")))
   (with badpath (.getAbsolutePath (clojure.java.io/file @dirpath "file1000")))
+  (with gifpath (.getAbsolutePath (clojure.java.io/file @dirpath "image.gif")))
   (with partial-path (.getAbsolutePath (clojure.java.io/file @dirpath "partial_content.txt")))
 
   (it "should return vector response"
@@ -98,6 +99,11 @@
                     (:content (first (serve-file @dirpath {}))))
     (should-contain "<body>"
                     (:content (first (serve-file @dirpath {})))))
+
+  (it "should have a header of :media-type 'image/gif' for gif files"
+    (should= "image/gif"
+                    (:media-type (:headers 
+                                (first (serve-file @gifpath {}))))))
 )
 
 (describe "echo-server"
@@ -124,7 +130,8 @@
       (with-open [server-socket (create-server-socket 3000 addr)]
         (defrouter test-router [request params]
           (GET "/"(serve-file path request))
-          (GET "/file1" (serve-file (str path "/file1") request)))
+          (GET "/file1" (serve-file (str path "/file1") request))
+          (GET "/image.gif" (serve-file (str path "/image.gif") request)))
         (future (server server-socket path test-router))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
@@ -143,6 +150,14 @@
                             (doall (read-until-emptyline i-stream)))
             (should= '("file")
                             (read-n-bytes i-stream 100))))
+        (with-open [client-socket (connect-socket addr 3000)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
+            (.println o-stream "GET /image.gif HTTP/1.1\r\n")
+            (should-contain "HTTP/1.1 200 OK"
+                            (read-until-emptyline i-stream))
+            (should-contain "media-type: image/gif"
+                            (doall (read-until-emptyline i-stream)))))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]
