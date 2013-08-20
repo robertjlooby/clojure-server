@@ -71,17 +71,19 @@
 
 (defn server [server-socket directory router]
   (loop []
-    (with-open [socket (listen server-socket)]
-      (let [o-stream (socket-writer socket)
-            request  (parse-request socket)
-            router-response (router request)
-            response (build-response router-response)]
-        (if (re-matches #".*206.*" (first response))
-          (let [to-print (butlast response)]
-            (doseq [line (butlast to-print)]
-              (.println o-stream line))
-            (.print o-stream (last to-print))
-            (.flush o-stream))
-          (doseq [line response]
-            (.println o-stream line)))))
+    (let [socket-to-client (listen server-socket)]
+      (future
+        (with-open [socket socket-to-client]
+          (let [o-stream (socket-writer socket)
+                request  (parse-request socket)
+                router-response (router request)
+                response (build-response router-response)]
+            (if (re-matches #".*206.*" (first response))
+              (let [to-print (butlast response)]
+                (doseq [line (butlast to-print)]
+                  (.println o-stream line))
+                (.print o-stream (last to-print))
+                (.flush o-stream))
+              (doseq [line response]
+                (.println o-stream line)))))))
     (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))
