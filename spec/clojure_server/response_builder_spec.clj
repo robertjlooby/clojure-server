@@ -19,6 +19,9 @@
   (it "should return '404 Not Found' for 404"
     (should= "404 Not Found" (status-code-converter 404)))
 
+  (it "should return '405 Method Not Allowed' for 405"
+    (should= "405 Method Not Allowed" (status-code-converter 405)))
+
   (it "should return '301 Moved Permanently' for 301"
     (should= "301 Moved Permanently" (status-code-converter 301)))
 )

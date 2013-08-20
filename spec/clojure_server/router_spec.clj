@@ -99,4 +99,18 @@
       (GET "/" ["root" 200]))
     (should= ['("Not Found") 404] (my-router
                                     {:headers {:method "GET" :path "/foo"}})))
+
+  (it "should give a 405 error if method not allowed"
+    (defrouter my-router [request params]
+      (GET "/foo" ["get foo" 200])
+      (POST "/foo" ["post foo" 200]))
+    (should= [{:headers {:Accept "GET, POST"}} 405]
+             (my-router {:headers {:method "PUT" :path "/foo"}})))
+
+  (it "should give a 405 error if method not allowed on params matches"
+    (defrouter my-router [request params]
+      (GET "/:foo" ["get foo" 200])
+      (POST "/:foo" ["post foo" 200]))
+    (should= [{:headers {:Accept "GET, POST"}} 405]
+             (my-router {:headers {:method "PUT" :path "/file"}})))
 )

@@ -34,18 +34,23 @@
         nil)))
 
 (defmacro defrouter [router-name args & routes]
+  (let [accept (gensym)]
   `(defn ~router-name [~(first args)]
-     ~(concat
-       (list* 'cond 
-            (apply concat
-              (map #(list `(and (= ~(str (first %)) 
-                                    (:method (:headers ~(first args))))
-                                (params-match ~(second %) 
-                                    (:path (:headers ~(first args)))))
-                           `(let [~(second args)
-                                     (params-match
-                                       ~(second %)
-                                       (:path (:headers ~(first args))))]
-                             ~(last %)))
-                   routes)))
-       '(:else ['("Not Found") 404]))))
+     (let [~accept (atom [])]
+       ~(concat
+         (list* 'cond 
+              (apply concat
+                (map #(list `(and (if (params-match ~(second %) (:path (:headers ~(first args))))
+                                    (swap! ~accept conj ~(str (first %))))
+                                  (= ~(str (first %)) 
+                                      (:method (:headers ~(first args)))))
+                             `(let [~(second args)
+                                       (params-match
+                                         ~(second %)
+                                         (:path (:headers ~(first args))))]
+                               ~(last %)))
+                     routes)))
+         `(:else 
+             (if (seq @~accept)
+                [{:headers {:Accept (clojure.string/join ", " @~accept)}} 405]
+                ['("Not Found") 404])))))))

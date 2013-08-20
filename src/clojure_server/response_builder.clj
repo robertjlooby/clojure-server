@@ -6,6 +6,7 @@
                301 "Moved Permanently"
                401 "Unauthorized"
                404 "Not Found"
+               405 "Method Not Allowed"
               }
         response (get codes status-code)]
     (if response (str status-code " " response))))
