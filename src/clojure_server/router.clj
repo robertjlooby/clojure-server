@@ -12,10 +12,27 @@
            (keyword (subs % 1))
            %) path-vec)))
 
+(defn parse-request-path [request-path]
+  (let [rel-path-vec (parse-path request-path)
+        base-path (butlast rel-path-vec)
+        [path-end query] (clojure.string/split 
+                               (last rel-path-vec) #"\?" 2)
+        params (if query
+                 (into {} (map
+                            #(vec 
+                               (map 
+                                 (fn [s]
+                                   (java.net.URLDecoder/decode s))
+                                 (rest %)))
+                                (re-seq #"([^&]*)=([^&]*)" query)))
+                 {})]
+    [(concat base-path [path-end]) params]))
+
 (defn params-match [router-path request-path]
+  (let [[request-path-vec params] (parse-request-path request-path)]
   (loop [router-path-vec (parse-router-path router-path)
-         request-path-vec (parse-path request-path)
-         params {}]
+         request-path-vec request-path-vec
+         params params]
     (cond
       (not= (count router-path-vec) (count request-path-vec))
         nil
@@ -31,7 +48,7 @@
                (rest request-path-vec)
                params)
       :else
-        nil)))
+        nil))))
 
 (defmacro defrouter [router-name args & routes]
   (let [accept (gensym)]

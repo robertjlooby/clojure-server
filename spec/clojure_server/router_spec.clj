@@ -16,6 +16,27 @@
     (should= ["a" :b :c "d.html"] (parse-router-path "/a/:b/:c/d.html")))
 )
 
+(describe "parse-request-path"
+  (it "should return [[''] {}] for '/'"
+    (should= [[""] {}] (parse-request-path "/")))
+
+  (it "should return [['hello' 'world'] {}] for '/hello/world'"
+    (should= [["hello" "world"] {}]
+             (parse-request-path "/hello/world")))
+
+  (it "should return [['file'] {'a' '123'}] for '/file?a=123'"
+    (should= [["file"] {"a" "123"}]
+             (parse-request-path "/file?a=123")))
+
+  (it "should return [['file' 'path' 'user'] {'name' 'rob' 'id' '5'}] for '/file/path/user?name=rob&id=5'"
+    (should= [["file" "path" "user"] {"name" "rob", "id" "5"}]
+             (parse-request-path "/file/path/user?name=rob&id=5")))
+
+  (it "should reutrn [['parameters'] {'var_1' 'Operators <, >''var_2' 'stuff'}] for '/parameters?var_1=Operators%20%3C%2C%20%3E&var_2=stuff'"
+    (should= [["parameters"] {"var_1" "Operators <, >""var_2" "stuff"}]
+             (parse-request-path "/parameters?var_1=Operators%20%3C%2C%20%3E&var_2=stuff")))
+)
+
 (describe "params-match"
   (it "should return nil when not a match"
       (should= nil (params-match "/" "/hello")))
