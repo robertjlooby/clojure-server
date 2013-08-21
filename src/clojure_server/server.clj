@@ -104,7 +104,6 @@
                 (doseq [line headers]
                   (.println o-stream line))
                 (loop [num-read (.read f-i-stream b-a 0 chunk-size)]
-                  (prn "num-read=" num-read)
                   (cond
                     (= -1 num-read)
                       (.flush s-o-stream)
