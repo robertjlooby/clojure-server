@@ -96,23 +96,22 @@
                                (:headers
                                  (first router-response))))
               (let [image-file (:image-file (first router-response))
-                    length (:Content-Length
-                             (:headers
-                               (first router-response)))
                     headers (butlast response)
                     f-i-stream (java.io.FileInputStream. image-file)
                     s-o-stream (.getOutputStream socket)
-                    b-a (byte-array length)]
+                    chunk-size 1024
+                    b-a (byte-array chunk-size)]
                 (doseq [line headers]
                   (.println o-stream line))
-                (loop [num-read (.read f-i-stream b-a 0 length)]
-                  (if-not (= -1 num-read)
+                (loop [num-read (.read f-i-stream b-a 0 chunk-size)]
+                  (prn "num-read=" num-read)
+                  (cond
+                    (= -1 num-read)
+                      (.flush s-o-stream)
+                    :else
                     (do
                       (.write s-o-stream b-a 0 num-read)
-                      (.flush s-o-stream)
-                      (recur (.read f-i-stream 0 length)))))
-                (.flush s-o-stream)
-                (prn  "printed the whole gif"))
+                      (recur (.read f-i-stream b-a 0 chunk-size))))))
               (re-matches #".*206.*" (first response))
               (let [to-print (butlast response)]
                 (doseq [line (butlast to-print)]
