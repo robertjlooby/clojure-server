@@ -50,6 +50,14 @@
           [{:headers {:media-type "image/gif"
                      :Content-Length (.length file)}
             :image-file file} 200]
+        (= ".png" (apply str (take-last 4 path)))
+          [{:headers {:media-type "image/png"
+                     :Content-Length (.length file)}
+            :image-file file} 200]
+        (= ".jpeg" (apply str (take-last 5 path)))
+          [{:headers {:media-type "image/jpeg"
+                     :Content-Length (.length file)}
+            :image-file file} 200]
         (:Range (:headers request))
           (let [[_ f l] (first (re-seq #"bytes=(\d+)-(\d+)"
                                 (:Range (:headers request))))
@@ -83,7 +91,8 @@
                 router-response (router request)
                 response (build-response router-response)]
             (cond
-              (= "image/gif" (:media-type
+              (contains? #{"image/gif" "image/jpeg" "image/png"}
+                         (:media-type
                                (:headers
                                  (first router-response))))
               (let [image-file (:image-file (first router-response))
