@@ -28,13 +28,7 @@
   (let [auth (:Authorization (:headers request))]
     (if-not auth [{:content '("Authentication required")} 401]
       (let [pass (second (clojure.string/split auth #" "))
-            decoded (apply str
-                           (map char
-                                (decode 
-                                  (bytes 
-                                    (byte-array 
-                                      (map 
-                                        (comp byte int) pass))))))]
+            decoded (String. (decode (.getBytes pass)))]
         (if (= decoded "admin:hunter2")
           [{:content '("GET /log HTTP/1.1"
                        "PUT /these HTTP/1.1"
