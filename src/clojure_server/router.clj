@@ -1,4 +1,5 @@
-(ns clojure_server.router)
+(ns clojure_server.router
+  (:require [clojure.walk :refer [walk]]))
 
 (defn parse-path [path]
   (let [relative-path (if (= \/ (first path))
@@ -12,19 +13,20 @@
            (keyword (subs % 1))
            %) path-vec)))
 
+(defn decode-url [s]
+  (java.net.URLDecoder/decode s))
+
 (defn parse-request-path [request-path]
   (let [rel-path-vec (parse-path request-path)
         base-path (butlast rel-path-vec)
         [path-end query] (clojure.string/split 
                                (last rel-path-vec) #"\?" 2)
         params (if query
-                 (into {} (map
-                            #(vec 
-                               (map 
-                                 (fn [s]
-                                   (java.net.URLDecoder/decode s))
-                                 (rest %)))
-                                (re-seq #"([^&]*)=([^&]*)" query)))
+                 (->> query
+                      (re-seq #"([^&]*)=([^&]*)")
+                      (map rest)
+                      (map #(walk decode-url vec %))
+                      (into {}))
                  {})]
     [(concat base-path [path-end]) params]))
 
