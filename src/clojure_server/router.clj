@@ -52,6 +52,14 @@
       :else
         nil))))
 
+(defn request-matches [router-path   request-path
+                       router-method request-method
+                       accept]
+  (and
+    (if (params-match router-path request-path)
+      (swap! accept conj router-method))
+    (= router-method request-method)))
+
 (defmacro defrouter [router-name args & routes]
   (let [accept (gensym)]
   `(defn ~router-name [~(first args)]
@@ -59,10 +67,12 @@
        ~(concat
          (list* 'cond 
               (apply concat
-                (map #(list `(and (if (params-match ~(second %) (:path (:headers ~(first args))))
-                                    (swap! ~accept conj ~(str (first %))))
-                                  (= ~(str (first %)) 
-                                      (:method (:headers ~(first args)))))
+                (map #(list `(request-matches 
+                               ~(second %)
+                               (:path (:headers ~(first args)))
+                               ~(str (first %))
+                               (:method (:headers ~(first args)))
+                               ~accept)
                              `(let [~(second args)
                                        (params-match
                                          ~(second %)

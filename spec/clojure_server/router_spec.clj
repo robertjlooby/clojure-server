@@ -61,6 +61,33 @@
 
   (it "should return nil even when params partially match, request longer"
     (should= nil (params-match "/:a/url/page" "/1234/url/page/user")))
+
+  (it "should match params in the path and query"
+    (should= {:user "rob" :id "123" "lang" "clojure"}
+             (params-match "/path/:user/:id"
+                           "/path/rob/123?lang=clojure")))
+)
+
+(describe "request-matches"
+  (it "should return falsy if path does not match"
+    (should-not (request-matches "/" "/file1" "GET" "GET" (atom []))))
+
+  (it "should return falsy if method does not match"
+    (should-not (request-matches "/" "/" "PUT" "GET" (atom []))))
+
+  (it "should return truthy if method and path match"
+    (should (request-matches "/" "/" "GET" "GET" (atom []))))
+
+  (it "should return truthy if method matches and path params matches"
+    (should (request-matches "/:file" "/file1" "GET" "GET" (atom []))))
+
+  (it "should return falsy if path params matches but methods don't match"
+    (should-not (request-matches "/:file" "/file1" "PUT" "GET" (atom []))))
+
+  (it "should return falsy, and add router-method to accept, if path matches but method does not"
+    (let [accept (atom [])]
+      (should-not (request-matches "/" "/" "PUT" "GET" accept))
+      (should= ["PUT"] @accept)))
 )
 
 (describe "router"
