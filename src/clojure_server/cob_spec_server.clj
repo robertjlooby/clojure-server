@@ -39,28 +39,32 @@
           [{:content-stream (java.io.StringBufferInputStream.
                                      "Authentication required")} 401])))))
 
+(def directory (atom nil))
+(def port (atom nil))
+(defrouter router [request params]
+  (GET "/" (serve-file @directory request))
+  (PUT "/form"  (write-form (str @directory "/form") request))
+  (POST "/form" (write-form (str @directory "/form") request))
+  (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
+  (GET "/redirect" [{:headers {:Location (str "http://localhost:" @port "/")}} 301])
+  (GET "/logs" (get-logs request))
+  (GET "/parameters" [{:content-stream
+                         (java.io.StringBufferInputStream.
+                          (clojure.string/join 
+                            (map #(str (first %) " = " (second %) "\r\n") 
+                                 params)))} 200])
+  (GET "/:file" (serve-file (str @directory "/" (:file params)) request)))
 
 (defn -main [& args]
   (with-command-line args
     "Usage...."
-    [[port p "The port to run the server on" "3000"]
-     [directory d "The directory to serve files from"]]
-  (let [form (clojure.java.io/file directory "form")]
-    (.createNewFile form)
-    (.deleteOnExit form))
-  (with-open [server-socket (create-server-socket (Integer/parseInt port)
-                            (java.net.InetAddress/getByName "localhost"))]
-    (defrouter router [request params]
-      (GET "/" (serve-file directory request))
-      (PUT "/form"  (write-form (str directory "/form") request))
-      (POST "/form" (write-form (str directory "/form") request))
-      (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
-      (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
-      (GET "/logs" (get-logs request))
-      (GET "/parameters" [{:content-stream
-                             (java.io.StringBufferInputStream.
-                              (clojure.string/join 
-                                (map #(str (first %) " = " (second %) "\r\n") 
-                                     params)))} 200])
-      (GET "/:file" (serve-file (str directory "/" (:file params)) request)))
-    (server server-socket directory router))))
+    [[p "The port to run the server on"]
+     [d "The directory to serve files from"]]
+    (reset! directory d)
+    (reset! port (Integer/parseInt port))
+    (let [form (clojure.java.io/file @directory "form")]
+      (.createNewFile form)
+      (.deleteOnExit form))
+    (with-open [server-socket (create-server-socket @port
+                              (java.net.InetAddress/getByName "localhost"))]
+      (server server-socket @directory router))))
