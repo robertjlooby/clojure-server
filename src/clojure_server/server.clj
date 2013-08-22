@@ -98,25 +98,23 @@
               (.println p-o-stream line))
             (let [i-stream (:content-stream (first router-response))
                   o-stream (.getOutputStream socket)
-                  length (or
-                           (:Content-Length
-                             (:headers (first router-response)))
-                           Integer/MAX_VALUE)
-                  b-a (byte-array 1024)]
+                  length (or (:Content-Length
+                               (:headers (first router-response)))
+                             Integer/MAX_VALUE)
+                  chunk-size 1024
+                  b-a (byte-array chunk-size)]
               (loop [num-read 
-                        (.read i-stream b-a 0 (min length 1024))
+                        (.read i-stream b-a 0 (min length chunk-size))
                      tot-read 0]
                 (cond
-                  (= -1 num-read)
-                    (.flush o-stream)
+                  (< num-read chunk-size)
+                    (do
+                      (if (> num-read 0) (.write o-stream b-a 0 num-read))
+                      (.flush o-stream))
                   :else
-                  (do
-                    (.write o-stream b-a 0 num-read)
-                    (let [new-tot-read (+ tot-read num-read)
-                          new-chunk-size (min (- length new-tot-read)
-                                          1024)
-                          new-num-read (if (>= new-tot-read length)
-                                         -1
-                                         (.read i-stream b-a 0 new-chunk-size))]
-                    (recur new-num-read new-tot-read))))))))))
+                    (do
+                      (.write o-stream b-a 0 num-read)
+                      (recur (.read i-stream b-a 0 
+                                    (min (- length num-read tot-read) chunk-size))
+                             (+ num-read tot-read))))))))))
     (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))
