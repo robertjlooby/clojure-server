@@ -49,10 +49,10 @@
   (GET "/redirect" [{:headers {:Location (str "http://localhost:" @port "/")}} 301])
   (GET "/logs" (get-logs request))
   (GET "/parameters" [{:content-stream
-                         (java.io.StringBufferInputStream.
-                          (clojure.string/join 
-                            (map #(str (first %) " = " (second %) "\r\n") 
-                                 params)))} 200])
+                        (->> params
+                             (map #(str (first %) " = " (second %) "\r\n"))
+                             (clojure.string/join)
+                             (java.io.StringBufferInputStream.))} 200])
   (GET "/:file" (serve-file (str @directory "/" (:file params)) request)))
 
 (defn -main [& args]
