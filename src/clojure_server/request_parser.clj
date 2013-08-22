@@ -17,7 +17,8 @@
                   (apply str (seq trimmed-carr)))))))
 
 (defn parse-headers [in-seq]
-  (let [request-line (clojure.string/split (first in-seq) 
+  (let [_ (prn (str "REQUEST: " (first in-seq)))
+        request-line (clojure.string/split (first in-seq) 
                                            #" ")]
     (loop [headers (hash-map :method (first request-line)
                              :path (second request-line)
