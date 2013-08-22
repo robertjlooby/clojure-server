@@ -70,4 +70,8 @@
          `(:else 
              (if (seq @~accept)
                 [{:headers {:Accept (clojure.string/join ", " @~accept)}} 405]
-                ['("Not Found") 404])))))))
+                [{:headers {:Content-Length 9}
+                  :content-stream
+                    (java.io.StringBufferInputStream.
+                      "Not Found")} 404])))))))
+

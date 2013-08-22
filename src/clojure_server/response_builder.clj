@@ -18,6 +18,4 @@
            (status-code-converter (second router-response))))
     (map #(str (name (first %)) ": " (second %)) 
          (:headers (first router-response)))
-    '("")
-    (:content (first router-response))
     '("")))

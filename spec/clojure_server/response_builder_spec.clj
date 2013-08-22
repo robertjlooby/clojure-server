@@ -27,20 +27,22 @@
 )
 
 (describe "response builder"
+  (with router-response [{:headers {:Content-Type "text/html"}
+                          :content-stream nil} 200])
+
   (it "should have a response line"
-    (let [response (build-response [{:content '("hello")} 200])]
+    (let [response (build-response @router-response)]
       (should= "HTTP/1.1 200 OK" 
                       (first response))))
 
   (it "should provide full correct response"
-    (let [response (build-response [{:content '("hello" "world")} 200])]
-      (should= (seq ["HTTP/1.1 200 OK" "" "hello" "world" ""])
+    (let [response (build-response @router-response)]
+      (should= ["HTTP/1.1 200 OK" "Content-Type: text/html" ""]
                response)))
 
   (it "should give the correct response for a 404 Error"
-    (let [response (build-response [{:content '("Not Found")} 404])]
-      (should= (seq ["HTTP/1.1 404 Not Found" "" "Not Found" ""])
-               response)))
+    (let [response (build-response [{} 404])]
+      (should= ["HTTP/1.1 404 Not Found" ""] response)))
 
   (it "should include headers"
     (let [response (build-response [{:headers {:allow "GET"}} 200])]

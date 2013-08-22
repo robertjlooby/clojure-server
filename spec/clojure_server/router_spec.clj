@@ -118,8 +118,15 @@
   (it "should give a 404 error if no path matches"
     (defrouter my-router [request params]
       (GET "/" ["root" 200]))
-    (should= ['("Not Found") 404] (my-router
-                                    {:headers {:method "GET" :path "/foo"}})))
+    (should= 404 (second 
+                   (my-router
+                     {:headers {:method "GET" :path "/foo"}})))
+    (should= java.io.StringBufferInputStream
+             (class
+               (:content-stream
+                 (first 
+                   (my-router
+                     {:headers {:method "GET" :path "/foo"}}))))))
 
   (it "should give a 405 error if method not allowed"
     (defrouter my-router [request params]

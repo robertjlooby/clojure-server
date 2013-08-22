@@ -17,9 +17,7 @@
     (.getOutputStream socket) true))
 
 (defn file-to-seq [file-path]
-  (line-seq (java.io.BufferedReader. 
-              (java.io.FileReader. 
-                (clojure.java.io/file file-path)))))
+  (line-seq (clojure.java.io/reader file-path)))
 
 (defn seq-to-file [file string-seq]
   (let [p (java.io.PrintWriter. file)]
@@ -28,56 +26,62 @@
     (.flush p)))
 
 (defn serve-directory [dir]
-  (concat
-    ["<!DOCTYPE html>"
-     "<html>"
-     "<head>" 
-     "</head>"
-     "<body>"
-     (.getAbsolutePath dir)]
-    (map #(str "<div><a href=\"/" (.getName %) "\">" (.getName %) "</a></div>")
-      (.listFiles dir))
-    ["</body>"
-     "</html>"]))
+  (java.io.StringBufferInputStream.
+    (apply str
+      (concat
+        ["<!DOCTYPE html>"
+         "<html>"
+         "<head>" 
+         "</head>"
+         "<body>"
+         (.getAbsolutePath dir)]
+        (map #(str "<div><a href=\"/" (.getName %) "\">" (.getName %) "</a></div>")
+          (.listFiles dir))
+        ["</body>"
+         "</html>"]))))
+
+(defn extension [path]
+  (let [start (.lastIndexOf path ".")]
+    (if (> start 0)
+      (subs path start))))
 
 (defn serve-file [path request]
   (let [file (clojure.java.io/file path)]
     (if (.exists file)
       (cond
         (.isDirectory file)
-          [{:content (serve-directory file)} 200]
-        (= ".gif" (apply str (take-last 4 path)))
-          [{:headers {:media-type "image/gif"
+          [{:content-stream (serve-directory file)} 200]
+        (contains? #{".gif" ".png" ".jpeg"} (extension path))
+          [{:headers {:media-type (str "image/"
+                                       (subs (extension path) 1))
                      :Content-Length (.length file)}
-            :image-file file} 200]
-        (= ".png" (apply str (take-last 4 path)))
-          [{:headers {:media-type "image/png"
-                     :Content-Length (.length file)}
-            :image-file file} 200]
-        (= ".jpeg" (apply str (take-last 5 path)))
-          [{:headers {:media-type "image/jpeg"
-                     :Content-Length (.length file)}
-            :image-file file} 200]
+            :content-stream (java.io.FileInputStream. file)} 200]
         (:Range (:headers request))
           (let [[_ f l] (first (re-seq #"bytes=(\d+)-(\d+)"
                                 (:Range (:headers request))))
                 begin (Integer/parseInt f)
                 end   (Integer/parseInt l)
-                reader (clojure.java.io/reader file)
-                _ (read-n-bytes reader begin)]
-            [{:content (read-n-bytes reader (- end begin))} 206])
+                reader (java.io.FileInputStream. file)
+                _ (.read reader (byte-array begin) 0 begin)]
+            [{:headers {:Content-Length (- end begin)}
+              :content-stream reader} 206])
         :else
-          [{:content (file-to-seq path)} 200])
-      [{:content '("Not Found")} 404])))
+          [{:headers {:Content-Length (.length file)}
+            :content-stream (java.io.FileInputStream. file)} 200])
+      [{:headers {:Content-Length 9}
+                  :content-stream
+                    (java.io.StringBufferInputStream.
+                      "Not Found")} 404])))
 
 (defn echo-server [server-socket]
   (loop []
     (with-open [socket (listen server-socket)]
       (let [o-stream (socket-writer socket)
             request  (parse-request socket)
-            response (build-response 
-                       [{:content [(:path (:headers request))]} 200])]
-        (doseq [line response]
+            response (build-response [{} 200])
+            full-response (concat response
+                                  [(:path (:headers request)) ""])]
+        (doseq [line full-response]
           (.println o-stream line))))
     (if (.isClosed server-socket) (prn "echo-server exiting, socket closed") (recur))))
 
@@ -86,38 +90,33 @@
     (let [socket-to-client (listen server-socket)]
       (future
         (with-open [socket socket-to-client]
-          (let [o-stream (socket-writer socket)
+          (let [p-o-stream (socket-writer socket)
                 request  (parse-request socket)
                 router-response (router request)
-                response (build-response router-response)]
-            (cond
-              (contains? #{"image/gif" "image/jpeg" "image/png"}
-                         (:media-type
-                               (:headers
-                                 (first router-response))))
-              (let [image-file (:image-file (first router-response))
-                    headers (butlast response)
-                    f-i-stream (java.io.FileInputStream. image-file)
-                    s-o-stream (.getOutputStream socket)
-                    chunk-size 1024
-                    b-a (byte-array chunk-size)]
-                (doseq [line headers]
-                  (.println o-stream line))
-                (loop [num-read (.read f-i-stream b-a 0 chunk-size)]
-                  (cond
-                    (= -1 num-read)
-                      (.flush s-o-stream)
-                    :else
-                    (do
-                      (.write s-o-stream b-a 0 num-read)
-                      (recur (.read f-i-stream b-a 0 chunk-size))))))
-              (re-matches #".*206.*" (first response))
-              (let [to-print (butlast response)]
-                (doseq [line (butlast to-print)]
-                  (.println o-stream line))
-                (.print o-stream (last to-print))
-                (.flush o-stream))
-              :else
-              (doseq [line response]
-                (.println o-stream line)))))))
+                headers (build-response router-response)]
+            (doseq [line headers]
+              (.println p-o-stream line))
+            (let [i-stream (:content-stream (first router-response))
+                  o-stream (.getOutputStream socket)
+                  length (or
+                           (:Content-Length
+                             (:headers (first router-response)))
+                           Integer/MAX_VALUE)
+                  b-a (byte-array 1024)]
+              (loop [num-read 
+                        (.read i-stream b-a 0 (min length 1024))
+                     tot-read 0]
+                (cond
+                  (= -1 num-read)
+                    (.flush o-stream)
+                  :else
+                  (do
+                    (.write o-stream b-a 0 num-read)
+                    (let [new-tot-read (+ tot-read num-read)
+                          new-chunk-size (min (- length new-tot-read)
+                                          1024)
+                          new-num-read (if (>= new-tot-read length)
+                                         -1
+                                         (.read i-stream b-a 0 new-chunk-size))]
+                    (recur new-num-read new-tot-read))))))))))
     (if (.isClosed server-socket) (prn "server exiting, socket closed") (recur))))

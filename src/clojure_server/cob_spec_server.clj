@@ -26,14 +26,18 @@
 
 (defn get-logs [request]
   (let [auth (:Authorization (:headers request))]
-    (if-not auth [{:content '("Authentication required")} 401]
+    (if-not auth [{:content-stream (java.io.StringBufferInputStream.
+                                     "Authentication required")} 401]
       (let [pass (second (clojure.string/split auth #" "))
             decoded (String. (decode (.getBytes pass)))]
         (if (= decoded "admin:hunter2")
-          [{:content '("GET /log HTTP/1.1"
-                       "PUT /these HTTP/1.1"
-                       "HEAD /requests HTTP/1.1")} 200]
-          [{:content '("Authentication required")} 401])))))
+          [{:content-stream
+              (java.io.StringBufferInputStream.
+                (str "GET /log HTTP/1.1\r\n"
+                       "PUT /these HTTP/1.1\r\n"
+                       "HEAD /requests HTTP/1.1\r\n"))} 200]
+          [{:content-stream (java.io.StringBufferInputStream.
+                                     "Authentication required")} 401])))))
 
 
 (defn -main [& args]
@@ -53,6 +57,10 @@
       (OPTIONS "/method_options" [{:headers {:allow "GET,HEAD,POST,OPTIONS,PUT"}} 200])
       (GET "/redirect" [{:headers {:Location (str "http://localhost:" port "/")}} 301])
       (GET "/logs" (get-logs request))
-      (GET "/parameters" [{:content (map #(str (first %) " = " (second %)) params)} 200])
+      (GET "/parameters" [{:content-stream
+                             (java.io.StringBufferInputStream.
+                              (clojure.string/join 
+                                (map #(str (first %) " = " (second %) "\r\n") 
+                                     params)))} 200])
       (GET "/:file" (serve-file (str directory "/" (:file params)) request)))
     (server server-socket directory router))))

@@ -60,14 +60,26 @@
   (with partial-path (.getAbsolutePath (clojure.java.io/file @dirpath "partial_content.txt")))
 
   (it "should return vector response"
-    (should= (class []) (class (serve-file @goodpath {})))
-    (should= true (seq? (:content (first (serve-file @goodpath {})))))
-    (should= (class 200) (class (second (serve-file @goodpath {}))))
+    (should= (class []) (class (serve-file @goodpath {}))))
+
+  (it "should have a :content-stream"
+    (should= true (isa? (class
+                          (:content-stream
+                            (first (serve-file @goodpath {}))))
+                        java.io.InputStream)))
+
+  (it "should have a status code"
+    (should= (class 200) (class (second (serve-file @goodpath {})))))
+
+  (it "should just have the response map and status code"
     (should= 2 (count (serve-file @goodpath {}))))
 
   (it "should have the contents of the file"
-    (should-contain "file1 contents" (:content (first (serve-file @goodpath {}))))
-    (should= 200 (second (serve-file @goodpath {}))))
+    (let [stream (:content-stream (first (serve-file @goodpath {})))
+          b-a (byte-array 5000)
+          _ (.read stream b-a 0 5000)]
+    (should-contain "file1 contents" (String. b-a))
+    (should= 200 (second (serve-file @goodpath {})))))
 
   (it "should return a 404 for bad path"
     (should= 404 (second (serve-file @badpath {}))))
@@ -76,34 +88,58 @@
     (should= 206 (second (serve-file @partial-path {:headers
                                                     {:Range "bytes=0-4"}}))))
 
-  (it "should return the partial content"
-    (should= {:content '("This")} (first (serve-file @partial-path {:headers
-                                                    {:Range "bytes=0-4"}}))))
-
-  (it "should return the partial content when not starting at 0"
-    (should= {:content '(" is a")} (first (serve-file @partial-path {:headers
-                                                    {:Range "bytes=4-9"}}))))
-
   (it "should have the name of the directory served"
-    (should-contain @dirpath (:content (first (serve-file @dirpath {}))))
-    (should= 200 (second (serve-file @dirpath {}))))
+    (let [stream (:content-stream (first (serve-file @dirpath {})))
+          b-a (byte-array 5000)
+          _ (.read stream b-a 0 5000)]
+    (should-contain @dirpath (String. b-a))
+    (should= 200 (second (serve-file @dirpath {})))))
 
   (it "should have links to files in directory"
-    (should-contain "<div><a href=\"/image.gif\">image.gif</a></div>"
-                    (:content (first (serve-file @dirpath {}))))
-    (should-contain "<div><a href=\"/file1\">file1</a></div>"
-                    (:content (first (serve-file @dirpath {})))))
+    (let [stream (:content-stream (first (serve-file @dirpath {})))
+          b-a (byte-array 5000)
+          _ (.read stream b-a 0 5000)]
+    (should-contain
+      "<div><a href=\"/image.gif\">image.gif</a></div>"
+      (String. b-a))
+    (should-contain
+      "<div><a href=\"/file1\">file1</a></div>"
+      (String. b-a))
+    (should= 200 (second (serve-file @dirpath {})))))
   
   (it "should serve as HTML page"
-    (should-contain "<!DOCTYPE html>"
-                    (:content (first (serve-file @dirpath {}))))
-    (should-contain "<body>"
-                    (:content (first (serve-file @dirpath {})))))
+    (let [stream (:content-stream (first (serve-file @dirpath {})))
+          b-a (byte-array 5000)
+          _ (.read stream b-a 0 5000)]
+    (should-contain
+      "<!DOCTYPE html>"
+      (String. b-a))
+    (should-contain
+      "<body>"
+      (String. b-a))))
 
   (it "should have a header of :media-type 'image/gif' for gif files"
     (should= "image/gif"
                     (:media-type (:headers 
                                 (first (serve-file @gifpath {}))))))
+  (it "should have a header of :Content-Length 14 for file1"
+    (should= 14
+              (:Content-Length (:headers 
+                          (first (serve-file @goodpath {}))))))
+)
+
+(describe "extension"
+  (it "should return nil for '/'"
+    (should= nil (extension "/")))
+
+  (it "should return .html for '/file.html'"
+    (should= ".html" (extension "/file.html")))
+
+  (it "should return .gif for '/path/to/file.gif'"
+    (should= ".gif" (extension "/path/to/file.gif")))
+
+  (it "should return .png for '/even.with.periods.png'"
+    (should= ".png" (extension "/even.with.periods.png")))
 )
 
 (describe "echo-server"
@@ -140,7 +176,8 @@
             (should-contain "HTTP/1.1 200 OK"
                             (doall (read-until-emptyline i-stream)))
             (should-contain path
-                            (read-until-emptyline i-stream))))
+                            (first
+                              (read-until-emptyline i-stream)))))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
                 o-stream (socket-writer client-socket)]
@@ -149,6 +186,15 @@
             (should-contain "HTTP/1.1 206 Partial Content"
                             (doall (read-until-emptyline i-stream)))
             (should= '("file")
+                            (read-n-bytes i-stream 100))))
+        (with-open [client-socket (connect-socket addr 3000)]
+          (let [i-stream (socket-reader client-socket)
+                o-stream (socket-writer client-socket)]
+            (.println o-stream "GET /file1 HTTP/1.1")
+            (.println o-stream "Range: bytes=4-9\r\n")
+            (should-contain "HTTP/1.1 206 Partial Content"
+                            (doall (read-until-emptyline i-stream)))
+            (should= '("1 con")
                             (read-n-bytes i-stream 100))))
         (with-open [client-socket (connect-socket addr 3000)]
           (let [i-stream (socket-reader client-socket)
