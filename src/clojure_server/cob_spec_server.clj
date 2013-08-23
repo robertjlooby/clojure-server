@@ -61,7 +61,7 @@
     [[p "The port to run the server on"]
      [d "The directory to serve files from"]]
     (reset! directory d)
-    (reset! port (Integer/parseInt port))
+    (reset! port (Integer/parseInt p))
     (let [form (clojure.java.io/file @directory "form")]
       (.createNewFile form)
       (.deleteOnExit form))
