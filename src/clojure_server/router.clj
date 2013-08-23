@@ -60,6 +60,14 @@
       (swap! accept conj router-method))
     (= router-method request-method)))
 
+(defn error-response [accept]
+ (if (seq accept)
+    [{:headers {:Accept (clojure.string/join ", " accept)}} 405]
+    [{:headers {:Content-Length 9}
+      :content-stream
+        (java.io.StringBufferInputStream.
+          "Not Found")} 404]))
+
 (defmacro defrouter [router-name args & routes]
   (let [accept (gensym)]
   `(defn ~router-name [~(first args)]
@@ -73,17 +81,13 @@
                                ~(str (first %))
                                (:method (:headers ~(first args)))
                                ~accept)
-                             `(let [~(second args)
-                                       (params-match
-                                         ~(second %)
-                                         (:path (:headers ~(first args))))]
+                             `(let [~(second args) 
+                                        (->> ~(first args)
+                                             (:headers)
+                                             (:path)
+                                             (params-match
+                                               ~(second %)))]
                                ~(last %)))
                      routes)))
          `(:else 
-             (if (seq @~accept)
-                [{:headers {:Accept (clojure.string/join ", " @~accept)}} 405]
-                [{:headers {:Content-Length 9}
-                  :content-stream
-                    (java.io.StringBufferInputStream.
-                      "Not Found")} 404])))))))
-
+            (error-response @~accept)))))))
