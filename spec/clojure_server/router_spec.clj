@@ -68,6 +68,29 @@
                            "/path/rob/123?lang=clojure")))
 )
 
+(describe "form-functionizer"
+  (it "should return a string unmodified"
+    (let [f "hello"
+          fun (form-functionizer f arg arg2)]
+      (should= "hello" (fun nil nil))))
+
+  (it "should evaluate a function"
+    (let [fun (form-functionizer (str "Hello " "World") arg arg2)]
+      (should= "Hello World" (fun nil nil))))
+
+  (it "should have access to first arg"
+    (let [fun (form-functionizer (str "Hello " nme) nme arg2)]
+      (should= "Hello Rob" (fun "Rob" nil))))
+
+  (it "should have access to second arg"
+    (let [fun (form-functionizer (+ a 5) arg1 a)]
+      (should= 12 (fun nil 7))))
+
+  (it "should have access to both args"
+    (let [fun (form-functionizer (zipmap arg1 arg2) arg1 arg2)]
+      (should= {:a 1 :b 2 :c 3} (fun [:a :b :c] [1 2 3]))))
+)
+
 (describe "request-matches"
   (it "should return falsy if path does not match"
     (should-not (request-matches "/" "/file1" "GET" "GET" (atom []))))
@@ -88,6 +111,48 @@
     (let [accept (atom [])]
       (should-not (request-matches "/" "/" "PUT" "GET" accept))
       (should= ["PUT"] @accept)))
+)
+
+(describe "route-functionizer"
+  (it "should return a function"
+    (should= true (fn? (route-functionizer '(GET "/" "hello")
+                                           'request 'params))))
+
+  (it "should return last form element as a fn if first 2 match"
+    (let [fun (route-functionizer '(GET "/" true) 'request 'params)
+          fun2 (fun "GET" "/")]
+      (should= true (fn? fun2))
+      (should= true (fun2 nil nil))))
+
+  (it "should match routes with params match"
+    (let [fun (route-functionizer '(PUT "/path/:file/:user" "hello")
+                                  'request 'params)
+          fun2 (fun "PUT" "/path/file1/rob")]
+      (should= "hello" (fun2 nil nil))))
+
+  (it "should return nil if path does not match"
+    (let [fun (route-functionizer '(PUT "/path/:file/:user" "hello")
+                                  'request 'params)
+          fun2 (fun "PUT" "/path2/file1/rob")]
+      (should= nil fun2)))
+
+  (it "should return the method if the path matches but not the method"
+    (let [fun (route-functionizer '(PUT "/path/:file/:user" "hello")
+                                  'request 'params)
+          fun2 (fun "GET" "/path/file1/rob")]
+      (should= "PUT" fun2)))
+
+  (it "should evaluate last element of form if matches"
+    (let [fun (route-functionizer '(GET "/path/:file/:user" (+ 2 2))
+                                  'request 'params)
+          fun2 (fun "GET" "/path/file1/rob")]
+      (should= 4 (fun2 {} {}))))
+
+  (it "should have access to request and params in last element of form"
+    (let [fun (route-functionizer '(GET "/path/:file/:user" (+ request params))
+                                  'request 'params)
+          fun2 (fun "GET" "/path/file1/rob")]
+      (should= 9 (fun2 5 4))))
 )
 
 (describe "router"

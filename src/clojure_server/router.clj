@@ -52,6 +52,10 @@
       :else
         nil))))
 
+(defmacro form-functionizer [form sym1 sym2]
+  `(fn [~sym1 ~sym2] ~form))
+
+
 (defn request-matches [router-path   request-path
                        router-method request-method
                        accept]
@@ -59,6 +63,16 @@
     (if (params-match router-path request-path)
       (swap! accept conj router-method))
     (= router-method request-method)))
+
+(defn route-functionizer [route-form sym1 sym2]
+  (fn [method# path#]
+     (let [path-matches# (params-match (second route-form)
+                                       path#)
+           route-method# (str (first route-form))]
+       (if (and (= method# route-method#) path-matches#)
+         (form-functionizer (last route-form) sym1 sym2)
+         (if path-matches#
+           route-method#)))))
 
 (defn error-response [accept]
  (if (seq accept)
@@ -68,26 +82,48 @@
         (java.io.StringBufferInputStream.
           "Not Found")} 404]))
 
-(defmacro defrouter [router-name args & routes]
-  (let [accept (gensym)]
+;(defmacro defrouter [router-name args & routes]
+;  (let [accept (gensym)]
+;  `(defn ~router-name [~(first args)]
+;     (let [~accept (atom [])]
+;       ~(concat
+;         (list* 'cond 
+;              (apply concat
+;                (map #(list `(request-matches 
+;                               ~(second %)
+;                               (:path (:headers ~(first args)))
+;                               ~(str (first %))
+;                               (:method (:headers ~(first args)))
+;                               ~accept)
+;                             `(let [~(second args) 
+;                                        (->> ~(first args)
+;                                             (:headers)
+;                                             (:path)
+;                                             (params-match
+;                                               ~(second %)))]
+;                               ~(last %)))
+;                     routes)))
+;         `(:else 
+;            (error-response @~accept)))))))
+
+(defmacro defrouter [router-name args & router-routes]
   `(defn ~router-name [~(first args)]
-     (let [~accept (atom [])]
-       ~(concat
-         (list* 'cond 
-              (apply concat
-                (map #(list `(request-matches 
-                               ~(second %)
-                               (:path (:headers ~(first args)))
-                               ~(str (first %))
-                               (:method (:headers ~(first args)))
-                               ~accept)
-                             `(let [~(second args) 
-                                        (->> ~(first args)
-                                             (:headers)
-                                             (:path)
-                                             (params-match
-                                               ~(second %)))]
-                               ~(last %)))
-                     routes)))
-         `(:else 
-            (error-response @~accept)))))))
+     (let [request-path# (:path (:headers ~(first args)))
+           request-method# (:method (:headers ~(first args)))]
+       (loop [routes# '~router-routes
+              accept# []]
+         (if (empty? routes#)
+          (error-response accept#)
+          (let [route-f# (route-functionizer
+                           (first routes#) '~(first args) '~(second args))
+                route-f2# (route-f# request-method# request-path#)
+                router-path# (second (first routes#))
+                ~(second args)
+                      (params-match router-path# request-path#)]
+            (cond
+              (nil? route-f2#)
+                (recur (rest routes#) accept#)
+              (string? route-f2#)
+                (recur (rest routes#) (conj accept# route-f2#))
+              :else
+                (route-f2# ~(first args) ~(second args)))))))))
