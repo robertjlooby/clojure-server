@@ -56,40 +56,41 @@
 (defmacro form-functionizer [form & syms]
   `(fn [~@syms] ~form))
 
-(defmacro route-functionizer [route-form sym1 sym2]
-  `(fn [method# path#]
-     (let [path-matches# (params-match ~(second route-form)
-                                       path#)
-           route-method# (str '~(first route-form))]
-       (if (and (= method# route-method#) path-matches#)
-         (partial (form-functionizer
-                    ~(last route-form) ~sym2 ~sym1)
-                  path-matches#)))))
+(defmacro route-functionizer [route-form request-sym params-sym]
+  `(fn [request#]
+     (let [path#         (:path (:headers request#))
+           method#       (:method (:headers request#))
+           params#       (params-match ~(second route-form) path#)
+           route-method# (str '~(first route-form))
+           route-fn#     (form-functionizer ~(last route-form)
+                                         ~request-sym ~params-sym)]
+       (if (and (= method# route-method#) params#)
+         (route-fn# request# params#)))))
 
 (defmacro route-error-functionizer [route-form]
-  `(fn [path#]
-     (if (params-match ~(second route-form) path#)
-       (str '~(first route-form)))))
+  `(fn [request#]
+     (let [path# (:path (:headers request#))]
+       (if (params-match ~(second route-form) path#)
+         (str '~(first route-form))))))
 
 (defn fnlist-to-fn [fnlist]
-  (fn [method path]
-    ((apply some-fn
-      (map #(fn [v] (apply % v)) fnlist)) [method path])))
+  (fn [request]
+    ((apply some-fn fnlist) request)))
 
 (defn fnlist-to-error-fn [fnlist]
-  (fn [path]
+  (fn [request]
     (remove nil?
-            ((apply juxt fnlist) path))))
+            ((apply juxt fnlist) request))))
 
 (defmacro routes-to-fns 
-  ([sym1 sym2]
+  ([request-sym params-sym]
    [])
-  ([sym1 sym2 router-route]
-   `[(route-functionizer ~router-route ~sym1 ~sym2)])
-  ([sym1 sym2 router-route & more-routes]
+  ([request-sym params-sym router-route]
+   `[(route-functionizer ~router-route ~request-sym ~params-sym)])
+  ([request-sym params-sym router-route & more-routes]
    `(concat
-     [(route-functionizer ~router-route ~sym1 ~sym2)]
-     (routes-to-fns ~sym1 ~sym2 ~@more-routes))))
+     [(route-functionizer ~router-route ~request-sym ~params-sym)]
+     (routes-to-fns ~request-sym ~params-sym ~@more-routes))))
 
 (defmacro routes-to-error-fns
   ([]
@@ -110,19 +111,16 @@
         (java.io.StringBufferInputStream.
           "Not Found")} 404]))
 
-(defmacro routes-to-router-fn [sym1 sym2 & routes]
+(defmacro routes-to-router-fn [request-sym params-sym & routes]
   `(fn [request#]
-     (let [request-path#   (:path   (:headers request#))
-           request-method# (:method (:headers request#))
-           success-fn# 
-              ((fnlist-to-fn
-                 (routes-to-fns ~sym1 ~sym2 ~@routes))
-               request-method# request-path#)
+     (let [success-fn# 
+              (fnlist-to-fn
+                 (routes-to-fns ~request-sym ~params-sym ~@routes))
            error-fn# (fnlist-to-error-fn
                        (routes-to-error-fns ~@routes))]
-       (if (fn? success-fn#)
+       (or
          (success-fn# request#)
-         (error-response (error-fn# request-path#))))))
+         (error-response (error-fn# request#))))))
 
 (defmacro defrouter [router-name args & routes]
   `(defn ~router-name [~(first args)]

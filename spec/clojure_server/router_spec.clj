@@ -98,101 +98,97 @@
 
   (it "should return last form element as a fn if first 2 match"
     (let [fun (route-functionizer (GET "/" true) request params)
-          fun2 (fun "GET" "/")]
-      (should= true (fn? fun2))
-      (should= true (fun2 nil))))
+          req {:headers {:method "GET" :path "/"}}]
+      (should= true (fun req))))
 
   (it "should match routes with params match"
     (let [fun (route-functionizer (PUT "/path/:file/:user" "hello")
                                   request params)
-          fun2 (fun "PUT" "/path/file1/rob")]
-      (should= "hello" (fun2 nil))))
+          req {:headers {:method "PUT" :path "/path/file1/rob"}}]
+      (should= "hello" (fun req))))
 
   (it "should return nil if path does not match"
     (let [fun (route-functionizer (PUT "/path/:file/:user" "hello")
                                   request params)
-          fun2 (fun "PUT" "/path2/file1/rob")]
-      (should= nil fun2)))
+          req {:headers {:method "PUT" :path "/path2/file1/rob"}}]
+      (should= nil (fun req))))
 
   (it "should return nil if the path matches but not the method"
     (let [fun (route-functionizer (PUT "/path/:file/:user" "hello")
                                   request params)
-          fun2 (fun "GET" "/path/file1/rob")]
-      (should= nil fun2)))
+          req {:headers {:method "GET" :path "/path/file1/rob"}}]
+      (should= nil (fun req))))
 
   (it "should evaluate last element of form if matches"
     (let [fun (route-functionizer (GET "/path/:file/:user" (+ 2 2))
                                   request params)
-          fun2 (fun "GET" "/path/file1/rob")]
-      (should= 4 (fun2 {}))))
+          req {:headers {:method "GET" :path "/path/file1/rob"}}]
+      (should= 4 (fun req))))
 
   (it "should have access to request and params in last
       element of form, with params partially applied"
     (let [fun (route-functionizer (GET "/path/:file/:user" 
-                                       (str request (:user params)
-                                                    (:var params)))
+                                       (str (:method 
+                                              (:headers request))
+                                            (:user params)
+                                            (:var params)))
                                   request params)
-          fun2 (fun "GET" "/path/file1/rob?var=yeah")]
-      (should= "hey robyeah" (fun2 "hey "))))
+          req {:headers
+               {:method "GET" :path "/path/file1/rob?var=yeah"}}]
+      (should= "GETrobyeah" (fun req))))
 )
 
 (describe "route-error-functionizer"
   (it "should return a function"
     (should= true (fn? (route-error-functionizer (GET "/" "hello")))))
 
-  (it "should return a fn that takes a path and returns nil if the 
-       path does not match"
+  (it "should return a fn that takes a request and returns nil
+       if the path does not match"
     (let [fun (route-error-functionizer (GET "/" true))]
-      (should= nil (fun "/badpath"))))
+      (should= nil (fun {:headers {:path "/badpath"}}))))
 
-  (it "should return a fn that takes a path and returns the route
+  (it "should return a fn that takes a request and returns the route
        method if the path does match"
     (let [fun (route-error-functionizer (GET "/" true))]
-      (should= "GET" (fun "/"))))
+      (should= "GET" (fun {:headers {:path "/"}}))))
 
   (it "should return a fn that also matches params"
     (let [fun (route-error-functionizer (PUT "/url/:file" "hey"))]
-      (should= "PUT" (fun "/url/index.html"))
-      (should= "PUT" (fun "/url/hey?id=234&name=rob"))
-      (should=  nil  (fun "/url/what/tooloong"))))
+      (should= "PUT" (fun {:headers {:path "/url/index.html"}}))
+      (should= "PUT" (fun {:headers 
+                           {:path "/url/hey?id=234&name=rob"}}))
+      (should=  nil  (fun {:headers 
+                           {:path "/url/what/tooloong"}}))))
 )
 
 (describe "fnlist-to-fn"
-  (it "should return a function that takes the method and path,
+  (it "should return a function that takes the request,
       returns falsy if no function returns truthy"
-    (let [f (fnlist-to-fn [(fn [a b] (= a b)) (fn [a b] (= a b))])]
+    (let [f (fnlist-to-fn [(fn [r] (= "a" r)) (fn [r] (= "b" r))])]
       (should= true (fn? f))
-      (should-not (f "GET" "/"))))
+      (should-not (f "/"))))
 
   (it "should return a function that returns the return value of
        the first function that returns truthy"
-    (let [f1 (fn [a b] (if (and (= a "GET") (= b "/")) "hey"))
-          f2 (fn [a b] (if (= a "PUT") ["vec" "result"]))
+    (let [f1 (fn [r] (if (= r "GET") "hey"))
+          f2 (fn [r] (if (= r "PUT") ["vec" "result"]))
           f (fnlist-to-fn [f1 f2])]
-      (should= "hey" (f "GET" "/"))
-      (should= ["vec" "result"] (f "PUT" "arg"))
-      (should-not (f "GET" "/hey"))))
-
-  (it "should consider a fn to be a truthy value and return it"
-    (let [rf (fn [a b] (str a b))
-          f1 (fn [a b] (if (and (= a "GET") (= b "/")) rf))
-          f2 (fn [a b] (if (= a "PUT") ["vec" "result"]))
-          f (fnlist-to-fn [f1 f2])]
-      (should= rf (f "GET" "/"))
-      (should= "hello joe" ((f "GET" "/") "hello " "joe"))))
+      (should= "hey" (f "GET"))
+      (should= ["vec" "result"] (f "PUT"))
+      (should-not (f "/hey"))))
 )
 
 (describe "fnlist-to-error-fn"
-  (it "should return a fn that takes a path, returns [] if no fns
+  (it "should return a fn that takes a request, returns [] if no fns
        in list return non-nil"
-    (let [f (fnlist-to-error-fn [(fn [p] nil) (fn [p] nil)])]
+    (let [f (fnlist-to-error-fn [(fn [r] nil) (fn [r] nil)])]
       (should= [] (f "/"))))
 
   (it "should return an array of all non-nil return values"
-    (let [f (fnlist-to-error-fn [(fn [p] nil)
-                                 (fn [p] (if (= p "/") "GET"))
-                                 (fn [p] (if (= p "/file") "POST"))
-                                 (fn [p] (if (= p "/") "PUT"))])]
+    (let [f (fnlist-to-error-fn [(fn [r] nil)
+                                 (fn [r] (if (= r "/") "GET"))
+                                 (fn [r] (if (= r "/file") "POST"))
+                                 (fn [r] (if (= r "/") "PUT"))])]
       (should= [] (f "/bad"))
       (should= ["GET" "PUT"] (f "/"))
       (should= ["POST"] (f "/file"))))
@@ -204,33 +200,30 @@
 
   (it "should return a function from the route for 1 route"
     (let [fns (routes-to-fns request params (GET "/" "hello"))
-          fn1 ((first fns) "GET" "/")]
+          req {:headers {:method "GET" :path "/"}}]
       (should= true (fn? (first fns)))
-      (should= true (fn? fn1))
-      (should= "hello" (fn1 {}))))
+      (should= "hello" ((first fns) req))))
 
   (it "should return a function that matches based on params"
     (let [fns (routes-to-fns request params (GET "/:file" "hello"))
-          fn1 ((first fns) "GET" "/file1")]
-      (should= true (fn? (first fns)))
-      (should= true (fn? fn1))
-      (should= "hello" (fn1 {}))))
+          req {:headers {:method "GET" :path "/file1"}}]
+      (should= "hello" ((first fns) req))))
 
   (it "should return a function with access to the var names 
        from the route for 1 route"
-    (let [fns (routes-to-fns v1 v2 (GET "/:word" (str v1 (:word v2))))
-          fn1 ((first fns) "GET" "/world")]
-      (should= true (fn? (first fns)))
-      (should= true (fn? fn1))
-      (should= "hello world" (fn1 "hello "))))
+    (let [fns (routes-to-fns v1 v2 (GET "/:word" (str (:method
+                                                        (:headers v1))
+                                                      (:word v2))))
+          req {:headers {:method "GET" :path "/world"}}]
+      (should= "GETworld" ((first fns) req))))
 
   (it "should return a list of functions for >1 routes"
     (let [fns (routes-to-fns v1 v2 (GET "/" "GET root")
                                    (PUT "/f1" "PUT f1")
                                    (POST "/f2" "POST f2"))
-          fn2 ((second fns) "PUT" "/f1")]
+          req {:headers {:method "PUT" :path "/f1"}}]
       (should= 3 (count fns))
-      (should= "PUT f1" (fn2 {}))))
+      (should= "PUT f1" ((second fns) req))))
 )
 
 (describe "routes-to-error-fns"
@@ -238,11 +231,10 @@
     (should= [] (routes-to-error-fns)))
 
   (it "should return a list of one function for one route"
-    (let [fns (routes-to-error-fns (GET "/" "hey"))
-          fn1 (first fns)]
-      (should= true (fn? fn1))
-      (should= "GET" (fn1 "/"))
-      (should=  nil  (fn1 "/bad"))))
+    (let [fns (routes-to-error-fns (GET "/" "hey"))]
+      (should= true (fn? (first fns)))
+      (should= "GET" ((first fns) {:headers {:path "/"}}))
+      (should=  nil  ((first fns) {:headers {:path "/bad"}}))))
 
   (it "should return a list of n functions for n routes"
     (let [fns (routes-to-error-fns (GET "/" "hey")
@@ -252,10 +244,11 @@
           fn2 (second fns)
           fn3 (last fns)]
       (should= 3 (count fns))
-      (should= "GET" (fn1 "/"))
-      (should= "PUT" (fn2 "/"))
-      (should= "GET" (fn3 "/file"))
-      (should= '(nil nil nil) (map #(% "/bad") fns))))
+      (should= "GET" (fn1 {:headers {:path "/"}}))
+      (should= "PUT" (fn2 {:headers {:path "/"}}))
+      (should= "GET" (fn3 {:headers {:path "/file"}}))
+      (should= '(nil nil nil) (map #(% {:headers {:path "/bad"}}) 
+                                   fns))))
 )
 
 (describe "error-response"
