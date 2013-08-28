@@ -101,29 +101,32 @@
       [(route-error-functionizer ~router-route)]
       (routes-to-error-fns ~@more-routes))))
 
-(defn error-response [accept]
- (if (seq accept)
-    [{:headers {:Accept (clojure.string/join ", " accept)}} 405]
+(defn error-response [allow]
+ (if (seq allow)
+    [{:headers {:Allow (clojure.string/join
+                         ", " (apply sorted-set allow))}} 405]
     [{:headers {:Content-Length 9}
       :content-stream
         (java.io.StringBufferInputStream.
           "Not Found")} 404]))
 
 (defmacro routes-to-router-fn [sym1 sym2 & routes]
-  `(fn [method# path#]
-     ((fnlist-to-fn
-        (routes-to-fns ~sym1 ~sym2 ~@routes)) method# path#)))
+  `(fn [request#]
+     (let [request-path#   (:path   (:headers request#))
+           request-method# (:method (:headers request#))
+           success-fn# 
+              ((fnlist-to-fn
+                 (routes-to-fns ~sym1 ~sym2 ~@routes))
+               request-method# request-path#)
+           error-fn# (fnlist-to-error-fn
+                       (routes-to-error-fns ~@routes))]
+       (if (fn? success-fn#)
+         (success-fn# request#)
+         (error-response (error-fn# request-path#))))))
 
 (defmacro defrouter [router-name args & routes]
   `(defn ~router-name [~(first args)]
      (let [request# ~(first args)
-           request-path#   (:path   (:headers request#))
-           request-method# (:method (:headers request#))
            router-fn# 
-            ((routes-to-router-fn request# ~(second args) ~@routes)
-               request-method# request-path#)
-           error-fn# (fnlist-to-error-fn
-                       (routes-to-error-fns ~@routes))]
-       (if (fn? router-fn#)
-         (router-fn# request#)
-         (error-response (error-fn# request-path#))))))
+            (routes-to-router-fn request# ~(second args) ~@routes)]
+       (router-fn# request#))))

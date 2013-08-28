@@ -259,14 +259,51 @@
 )
 
 (describe "routes-to-router-fn"
-  (it "returns a fn that takes the method and path,
-       returns a fn of the result of the matching path"
+  (it "returns a fn that takes the request,
+       returns the result of the matching path"
     (let [f (routes-to-router-fn v1 v2 (GET "/" "got root")
-                                       (PUT "/:form" (:form v2)))]
+                                       (PUT "/:form" (:form v2))
+                                       (POST "/:form" 
+                                             (str (:method 
+                                                    (:headers v1))
+                                                  (:form v2))))]
       (should= true (fn? f))
-      (should= true (fn? (f "GET" "/")))
-      (should= "got root" ((f "GET" "/") {}))))
+      (should= "got root" (f {:headers
+                              {:method "GET" :path "/"}}))
+      (should= "POSTfile1" (f {:headers
+                              {:method "POST" :path "/file1"}}))))
 
+  (it "returns a fn that takes the request,
+       returns an error if no path matches"
+    (let [f (routes-to-router-fn v1 v2 (GET "/" "got root")
+                                       (PUT "/:form" (:form v2))
+                                       (POST "/:form" 
+                                             (str (:method 
+                                                    (:headers v1))
+                                                  (:form v2))))]
+      (should= 404 (second (f {:headers
+                              {:method "POST" :path "/f1/bad"}})))
+      (should= 405 (second (f {:headers
+                              {:method "GET" :path "/f1"}})))
+      (should= "POST, PUT"
+              (:Allow (:headers
+                         (first (f {:headers
+                              {:method "GET" :path "/f1"}})))))))
+
+  (it "only includes each method once in 405 Allow header"
+    (let [f (routes-to-router-fn v1 v2 (GET "/" "got root")
+                                       (PUT "/f1" "put f1")
+                                       (PUT "/:form" (:form v2))
+                                       (POST "/:form" 
+                                             (str (:method 
+                                                    (:headers v1))
+                                                  (:form v2))))]
+      (should= 405 (second (f {:headers
+                              {:method "GET" :path "/f1"}})))
+      (should= "POST, PUT"
+              (:Allow (:headers
+                         (first (f {:headers
+                              {:method "GET" :path "/f1"}})))))))
 )
 
 (describe "router"
@@ -338,13 +375,13 @@
     (defrouter my-router [request params]
       (GET "/foo" ["get foo" 200])
       (POST "/foo" ["post foo" 200]))
-    (should= [{:headers {:Accept "GET, POST"}} 405]
+    (should= [{:headers {:Allow "GET, POST"}} 405]
              (my-router {:headers {:method "PUT" :path "/foo"}})))
 
   (it "should give a 405 error if method not allowed on params matches"
     (defrouter my-router [request params]
       (GET "/:foo" ["get foo" 200])
       (POST "/:foo" ["post foo" 200]))
-    (should= [{:headers {:Accept "GET, POST"}} 405]
+    (should= [{:headers {:Allow "GET, POST"}} 405]
              (my-router {:headers {:method "PUT" :path "/file"}})))
 )
