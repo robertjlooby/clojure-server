@@ -258,6 +258,17 @@
       (should= '(nil nil nil) (map #(% "/bad") fns))))
 )
 
+(describe "error-response"
+  (it "should return a 404 if passed []"
+    (should= 404 (second (error-response []))))
+
+  (it "should return a 405 with Allow header containing methods"
+    (let [resp (error-response ["POST" "GET" "PUT" "GET" "DELETE"])]
+      (should= 405 (second resp))
+      (should= "DELETE, GET, POST, PUT"
+               (:Allow (:headers (first resp))))))
+)
+
 (describe "routes-to-router-fn"
   (it "returns a fn that takes the request,
        returns the result of the matching path"
