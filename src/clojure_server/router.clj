@@ -74,8 +74,7 @@
          (str '~(first route-form))))))
 
 (defn fnlist-to-fn [fnlist]
-  (fn [request]
-    ((apply some-fn fnlist) request)))
+  (apply some-fn fnlist))
 
 (defn fnlist-to-error-fn [fnlist]
   (fn [request]
