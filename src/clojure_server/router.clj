@@ -31,7 +31,9 @@
                  {})]
     [(concat base-path [path-end]) params]))
 
-(defn params-match [router-path request-path]
+(defmulti params-match (fn [path _]
+                         (class path)))
+(defmethod params-match String [router-path request-path]
   (let [[request-path-vec params] (parse-request-path request-path)]
   (loop [router-path-vec (parse-router-path router-path)
          request-path-vec request-path-vec
@@ -52,19 +54,12 @@
                params)
       :else
         nil))))
+(defmethod params-match java.util.regex.Pattern 
+  [router-path request-path]
+  nil)
 
-(defmacro form-functionizer [form & syms]
-  `(fn [~@syms] ~form))
-
-(defmacro forms-to-fns
-  ([request-sym params-sym]
-   [])
-  ([request-sym params-sym form]
-   `[(form-functionizer ~form ~request-sym ~params-sym)])
-  ([request-sym params-sym form & more-forms]
-   `(concat
-     [(form-functionizer ~form ~request-sym ~params-sym)]
-      (forms-to-fns ~request-sym ~params-sym ~@more-forms))))
+(defmacro form-functionizer [sym1 sym2 & forms]
+  `(fn [~sym1 ~sym2] ~@forms))
 
 (defmacro route-functionizer [route-form request-sym params-sym]
   `(fn [request#]
@@ -72,10 +67,11 @@
            method#       (:method (:headers request#))
            params#       (params-match ~(second route-form) path#)
            route-method# (str '~(first route-form))
-           route-fns#    (forms-to-fns ~request-sym ~params-sym
-                                       ~@(drop 2 route-form))]
+           route-fn#    (form-functionizer ~request-sym
+                                            ~params-sym
+                                            ~@(drop 2 route-form))]
        (if (and (= method# route-method#) params#)
-         (walk #(% request# params#) last route-fns#)))))
+         (route-fn# request# params#)))))
 
 (defmacro route-error-functionizer [route-form]
   `(fn [request#]

@@ -66,46 +66,32 @@
     (should= {:user "rob" :id "123" :lang "clojure"}
              (params-match "/path/:user/:id"
                            "/path/rob/123?lang=clojure")))
+
+  (it "should return nil with a regex path when not a match"
+    (should= nil (params-match #"/([a-z]+)" "/1234")))
 )
 
 (describe "form-functionizer"
   (it "should return a string unmodified"
     (let [f "hello"
-          fun (form-functionizer f arg arg2)]
+          fun (form-functionizer arg arg2 f)]
       (should= "hello" (fun nil nil))))
 
   (it "should evaluate a function"
-    (let [fun (form-functionizer (str "Hello " "World") arg arg2)]
+    (let [fun (form-functionizer arg arg2 (str "Hello " "World"))]
       (should= "Hello World" (fun nil nil))))
 
   (it "should have access to first arg"
-    (let [fun (form-functionizer (str "Hello " nme) nme arg2)]
+    (let [fun (form-functionizer nme arg2 (str "Hello " nme))]
       (should= "Hello Rob" (fun "Rob" nil))))
 
   (it "should have access to second arg"
-    (let [fun (form-functionizer (+ a 5) arg1 a)]
+    (let [fun (form-functionizer arg1 a (+ a 5))]
       (should= 12 (fun nil 7))))
 
   (it "should have access to both args"
-    (let [fun (form-functionizer (zipmap arg1 arg2) arg1 arg2)]
+    (let [fun (form-functionizer arg1 arg2 (zipmap arg1 arg2))]
       (should= {:a 1 :b 2 :c 3} (fun [:a :b :c] [1 2 3]))))
-)
-
-(describe "forms-to-fns"
-  (it "should return [] for no forms"
-    (should= [] (forms-to-fns r p)))
-
-  (it "should return a vector of one fn for one form"
-    (let [fns (forms-to-fns r p "hello")]
-      (should= true (fn? (first fns)))
-      (should= "hello" ((first fns) nil nil))))
-
-  (it "should return a vector of n fns for n forms"
-    (let [fns (forms-to-fns r p "hello" (+ r p) (str r p))]
-      (should= 3 (count fns))
-      (should= "hello" ((first fns) nil nil))
-      (should= 5 ((second fns) 2 3))
-      (should= "hey there" ((last fns) "hey " "there"))))
 )
 
 (describe "route-functionizer"
