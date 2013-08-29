@@ -56,16 +56,26 @@
 (defmacro form-functionizer [form & syms]
   `(fn [~@syms] ~form))
 
+(defmacro forms-to-fns
+  ([request-sym params-sym]
+   [])
+  ([request-sym params-sym form]
+   `[(form-functionizer ~form ~request-sym ~params-sym)])
+  ([request-sym params-sym form & more-forms]
+   `(concat
+     [(form-functionizer ~form ~request-sym ~params-sym)]
+      (forms-to-fns ~request-sym ~params-sym ~@more-forms))))
+
 (defmacro route-functionizer [route-form request-sym params-sym]
   `(fn [request#]
      (let [path#         (:path (:headers request#))
            method#       (:method (:headers request#))
            params#       (params-match ~(second route-form) path#)
            route-method# (str '~(first route-form))
-           route-fn#     (form-functionizer ~(last route-form)
-                                         ~request-sym ~params-sym)]
+           route-fns#    (forms-to-fns ~request-sym ~params-sym
+                                       ~@(drop 2 route-form))]
        (if (and (= method# route-method#) params#)
-         (route-fn# request# params#)))))
+         (walk #(% request# params#) last route-fns#)))))
 
 (defmacro route-error-functionizer [route-form]
   `(fn [request#]

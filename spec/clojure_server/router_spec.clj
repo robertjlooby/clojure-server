@@ -91,6 +91,23 @@
       (should= {:a 1 :b 2 :c 3} (fun [:a :b :c] [1 2 3]))))
 )
 
+(describe "forms-to-fns"
+  (it "should return [] for no forms"
+    (should= [] (forms-to-fns r p)))
+
+  (it "should return a vector of one fn for one form"
+    (let [fns (forms-to-fns r p "hello")]
+      (should= true (fn? (first fns)))
+      (should= "hello" ((first fns) nil nil))))
+
+  (it "should return a vector of n fns for n forms"
+    (let [fns (forms-to-fns r p "hello" (+ r p) (str r p))]
+      (should= 3 (count fns))
+      (should= "hello" ((first fns) nil nil))
+      (should= 5 ((second fns) 2 3))
+      (should= "hey there" ((last fns) "hey " "there"))))
+)
+
 (describe "route-functionizer"
   (it "should return a function"
     (should= true (fn? (route-functionizer (GET "/" "hello")
@@ -136,6 +153,42 @@
           req {:headers
                {:method "GET" :path "/path/file1/rob?var=yeah"}}]
       (should= "GETrobyeah" (fun req))))
+
+  (it "should be able to have multiple forms as the route body
+       and get the result of the last one as the return value"
+    (let [a (atom 0)
+          b (atom 5)
+          c (atom 10)
+          fun (route-functionizer (PUT "/path/:file/:user"
+                                       (swap! a inc)
+                                       (swap! b dec)
+                                       (reset! c "hey")
+                                       @c)
+                                  request params)
+          req {:headers {:method "PUT" :path "/path/file1/rob"}}
+          result (fun req)]
+      (should= "hey" result)
+      (should= 1 @a)
+      (should= 4 @b)
+      (should= "hey" @c)))
+
+  (it "should be able to have multiple forms as the route body
+       and access to request/params in all of them"
+    (let [a (atom 0)
+          b (atom 5)
+          fun (route-functionizer (PUT "/path/:file/:user"
+                                     (reset! a (:method
+                                                (:headers request)))
+                                     (reset! b (:file params))
+                                     (str (:path (:headers request))
+                                          (:user params)))
+
+                                  request params)
+          req {:headers {:method "PUT" :path "/path/file1/rob"}}
+          result (fun req)]
+      (should= "/path/file1/robrob" result)
+      (should= "PUT" @a)
+      (should= "file1" @b)))
 )
 
 (describe "route-error-functionizer"
