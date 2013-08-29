@@ -16,19 +16,22 @@
 (defn decode-url [s]
   (java.net.URLDecoder/decode s))
 
+(defn parse-query-to-params [query]
+  (if query
+   (->> query
+        (re-seq #"([^&]*)=([^&]*)")
+        (map rest)
+        (map #(walk decode-url vec %))
+        (map #(vector (keyword (first %)) (second %)))
+        (into {}))
+   {}))
+
 (defn parse-request-path [request-path]
   (let [rel-path-vec (parse-path request-path)
         base-path (butlast rel-path-vec)
         [path-end query] (clojure.string/split 
                                (last rel-path-vec) #"\?" 2)
-        params (if query
-                 (->> query
-                      (re-seq #"([^&]*)=([^&]*)")
-                      (map rest)
-                      (map #(walk decode-url vec %))
-                      (map #(vector (keyword (first %)) (second %)))
-                      (into {}))
-                 {})]
+        params (parse-query-to-params query)]
     [(concat base-path [path-end]) params]))
 
 (defmulti params-match (fn [path _]
@@ -56,7 +59,16 @@
         nil))))
 (defmethod params-match java.util.regex.Pattern 
   [router-path request-path]
-  nil)
+    (let [[request-path-str query]
+            (clojure.string/split request-path  #"\?" 2)
+          params (parse-query-to-params query)
+          matches (re-matches router-path request-path-str)]
+      (if matches
+        (let [match-vec
+              (if (vector? matches) matches (vector matches))]
+          (merge
+            (zipmap (range) match-vec)
+            params)))))
 
 (defmacro form-functionizer [sym1 sym2 & forms]
   `(fn [~sym1 ~sym2] ~@forms))

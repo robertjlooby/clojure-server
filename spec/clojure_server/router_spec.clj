@@ -16,6 +16,24 @@
     (should= ["a" :b :c "d.html"] (parse-router-path "/a/:b/:c/d.html")))
 )
 
+(describe "parse-query-to-params"
+  (it "should return an empty map for nil"
+    (should= {} (parse-query-to-params nil)))
+
+  (it "should return an empty map for an empty string"
+    (should= {} (parse-query-to-params "")))
+
+  (it "should return {:a "123" :b 'abc'} for a=123&b=abc"
+    (should= {:a "123" :b "abc"}
+             (parse-query-to-params "a=123&b=abc")))
+
+  (it "should return {:var_1 'Operators <, >' :var_2 'stuff'} for
+       var_1=Operators%20%3C%2C%20%3E&var_2=stuff"
+    (should= {:var_1 "Operators <, >" :var_2 "stuff"}
+             (parse-query-to-params
+               "var_1=Operators%20%3C%2C%20%3E&var_2=stuff")))
+)
+
 (describe "parse-request-path"
   (it "should return [[''] {}] for '/'"
     (should= [[""] {}] (parse-request-path "/")))
@@ -32,8 +50,8 @@
     (should= [["file" "path" "user"] {:name "rob", :id "5"}]
              (parse-request-path "/file/path/user?name=rob&id=5")))
 
-  (it "should reutrn [['parameters'] {:var_1 'Operators <, >':var_2 'stuff'}] for '/parameters?var_1=Operators%20%3C%2C%20%3E&var_2=stuff'"
-    (should= [["parameters"] {:var_1 "Operators <, >":var_2 "stuff"}]
+  (it "should reutrn [['parameters'] {:var_1 'Operators <, >' :var_2 'stuff'}] for '/parameters?var_1=Operators%20%3C%2C%20%3E&var_2=stuff'"
+    (should= [["parameters"] {:var_1 "Operators <, >" :var_2 "stuff"}]
              (parse-request-path "/parameters?var_1=Operators%20%3C%2C%20%3E&var_2=stuff")))
 )
 
@@ -69,6 +87,28 @@
 
   (it "should return nil with a regex path when not a match"
     (should= nil (params-match #"/([a-z]+)" "/1234")))
+
+  (it "should return {0 '/'} for a match of #'/' to '/'"
+    (should= {0 "/"} (params-match #"/" "/")))
+
+  (it "should return {0 '/rob/123' 1 'rob' 2 '123'} for a match of
+       #'/([a-z]+)/(\\d+)' to '/rob/123'"
+    (should= {0 "/rob/123" 1 "rob" 2 "123"} 
+             (params-match #"/([a-z]+)/(\d+)" "/rob/123")))
+
+  (it "should return {0 '/a/1/file' 1 'a' 2 '1' :v '123' :x '<, >'}
+       for a match of #'/([a-z])/([0-9])/file' 
+       to '/a/1/file?v=123&x=%3C%2C%20%3E'"
+    (should= {0 "/a/1/file" 1 "a" 2 "1" :v "123" :x "<, >"}
+             (params-match #"/([a-z])/([0-9])/file"
+                           "/a/1/file?v=123&x=%3C%2C%20%3E")))
+
+  (it "should return {0 '/a/1/file' :v '123' :x '<, >'}
+       for a match of #'/[a-z]/[0-9]/file' 
+       to '/a/1/file?v=123&x=%3C%2C%20%3E'"
+    (should= {0 "/a/1/file" :v "123" :x "<, >"}
+             (params-match #"/[a-z]/[0-9]/file"
+                           "/a/1/file?v=123&x=%3C%2C%20%3E")))
 )
 
 (describe "form-functionizer"
