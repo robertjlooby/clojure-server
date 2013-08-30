@@ -109,6 +109,11 @@
     (should= {0 "/a/1/file" :v "123" :x "<, >"}
              (params-match #"/[a-z]/[0-9]/file"
                            "/a/1/file?v=123&x=%3C%2C%20%3E")))
+
+  (it "should return nil for a match of
+       #'/([a-z]+)/(\\d+)/pa' to '/rob/123/path'"
+    (should= nil 
+             (params-match #"/([a-z]+)/(\d+)/pa" "/rob/123/path")))
 )
 
 (describe "form-functionizer"
